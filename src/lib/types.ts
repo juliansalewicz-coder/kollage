@@ -121,6 +121,8 @@ export interface Look {
   /** Look this one was remixed from. */
   basedOn: string | null;
   isExample: boolean;
+  /** Short, concrete styling hint written by the editors (example looks only). */
+  tip?: string;
 }
 
 export type Occasion = "alltag" | "buero" | "abend" | "wochenende" | "reise";

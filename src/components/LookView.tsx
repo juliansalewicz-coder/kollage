@@ -26,6 +26,7 @@ export interface ViewableLook {
   items: CanvasItem[];
   authorName: string | null;
   kind: "beispiel" | "veroeffentlicht" | "privat" | "geteilt";
+  tip?: string;
 }
 
 const KIND_LABEL: Record<ViewableLook["kind"], string> = {
@@ -100,13 +101,18 @@ export function LookView({ look }: { look: ViewableLook }) {
         </Sheet>
 
         <div className="look-page__info">
-          <h1 className="page__title">{look.title}</h1>
+          <h1 className="page__title page__title--look">{look.title}</h1>
           <p className="look-page__meta">
             {look.authorName && <>von {look.authorName} · </>}
             {occasion} · {pieces(distinctCount(look.items))}
           </p>
           <p className="look-page__status">{KIND_LABEL[look.kind]}</p>
           {look.note && <p className="look-page__note">{look.note}</p>}
+          {look.tip && (
+            <p className="look-page__tip">
+              <strong>Styling-Tipp:</strong> {look.tip}
+            </p>
+          )}
           <div className="look-page__actions">
             <Link href={remixHref} className="btn btn--primary">
               <Icon name="edit" /> Look anpassen

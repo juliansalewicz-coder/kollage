@@ -3,6 +3,7 @@
 import { chromium } from "playwright-core";
 import fs from "node:fs";
 import { paket1 } from "./e2e-paket1.mjs";
+import { paket2 } from "./e2e-paket2.mjs";
 
 const out = process.argv[2] || "acceptance-out/e2e";
 fs.mkdirSync(out, { recursive: true });
@@ -182,6 +183,7 @@ await run("pages-desktop", { width: 1440, height: 900 }, async (page) => {
 });
 
 await paket1({ run, base, out, draft });
+await paket2({ run, base, out, draft });
 
 await browser.close();
 process.exit(failed ? 1 : 0);

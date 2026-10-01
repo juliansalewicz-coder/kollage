@@ -6,10 +6,12 @@ import { openLogin, useToasts } from "@/lib/events";
 import { useEffect } from "react";
 import { probeStorage, signOut, useSession, useStorageStatus } from "@/lib/store";
 import { Icon } from "./Icon";
+import { Wordmark } from "./Wordmark";
 
 const NAV = [
   { href: "/entdecken", label: "Entdecken" },
   { href: "/meine-looks", label: "Meine Looks" },
+  { href: "/gemerkt", label: "Gemerkt" },
 ];
 
 export function SiteHeader() {
@@ -19,8 +21,8 @@ export function SiteHeader() {
   return (
     <header className="nav">
       <div className="nav__inner">
-        <Link href="/" className="wordmark" aria-label="Kollage, zur Startseite">
-          Kollage
+        <Link href="/" className="nav__brand" aria-label="Kollage, zur Startseite">
+          <Wordmark />
         </Link>
         <nav className="nav__links" aria-label="Hauptnavigation">
           {NAV.map((n) => {
@@ -79,7 +81,9 @@ export function SiteFooter() {
         </p>
         <p className="footer__note">MVP mit Demo-Katalog: Artikel, Shops und Preise sind Beispiele. Die Produktbilder sind KI-generierte Demo-Renderings (Higgsfield), keine angebotenen Artikel.</p>
         <div className="footer__bottom">
-          <span>Kollage · Schweiz · Preise in CHF</span>
+          <span className="footer__brand">
+            <Wordmark size={15} /> Schweiz · Preise in CHF
+          </span>
           <nav className="footer__links" aria-label="Rechtliches">
             <Link href="/hinweise">Hinweise &amp; Affiliate-Offenlegung</Link>
             <Link href="/hinweise#datenschutz">Datenschutz (Entwurf)</Link>

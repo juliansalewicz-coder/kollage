@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { ActiveFilters, type ActiveFilter } from "@/components/ActiveFilters";
 import { Icon } from "@/components/Icon";
 import { LookTile } from "@/components/LookTile";
 import { normalize, getProduct } from "@/lib/catalog";
@@ -16,6 +17,7 @@ type Sort = "neu" | "preis-auf" | "preis-ab";
 const BUDGETS = [
   { id: "", label: "Jedes Budget" },
   { id: "300", label: "bis CHF 300" },
+  { id: "500", label: "bis CHF 500" },
   { id: "600", label: "bis CHF 600" },
   { id: "1000", label: "bis CHF 1’000" },
 ];
@@ -67,6 +69,15 @@ export function DiscoverView() {
   }, [all, q, occasion, budget, sort]);
 
   const filtered = Boolean(q || occasion || budget);
+  const reset = () => {
+    setText("");
+    router.replace(path, { scroll: false });
+  };
+  const active: ActiveFilter[] = [
+    ...(q ? [{ key: "q", label: `«${q}»`, onRemove: () => { setText(""); setParam("q", ""); } }] : []),
+    ...(occasion ? [{ key: "anlass", label: OCCASIONS.find((o) => o.id === occasion)?.label ?? occasion, onRemove: () => setParam("anlass", "") }] : []),
+    ...(budget ? [{ key: "budget", label: BUDGETS.find((b) => b.id === budget)?.label ?? `bis CHF ${budget}`, onRemove: () => setParam("budget", "") }] : []),
+  ];
 
   return (
     <div className="page wrap">
@@ -124,15 +135,18 @@ export function DiscoverView() {
         </div>
       </div>
 
-      <p className="result-count" aria-live="polite">
-        {results.length === 1 ? "1 Look" : `${results.length} Looks`}
-        {filtered && " gefunden"}
-      </p>
+      <div className="result-bar">
+        <p className="result-count" aria-live="polite">
+          {results.length === 1 ? "1 Look" : `${results.length} Looks`}
+          {filtered && " gefunden"}
+        </p>
+        <ActiveFilters filters={active} onReset={reset} />
+      </div>
 
       {results.length ? (
         <div className="street__grid street__grid--discover">
           {results.map((look) => (
-            <LookTile key={look.id} look={look} />
+            <LookTile key={look.id} look={look} showTip />
           ))}
         </div>
       ) : (
@@ -140,7 +154,7 @@ export function DiscoverView() {
           <h2 className="empty__title">Kein Look passt zu diesen Filtern</h2>
           <p>Entferne einen Filter oder stell den Look, den du suchst, selbst zusammen.</p>
           <div className="empty__actions">
-            <button type="button" className="btn btn--ghost" onClick={() => router.replace(path, { scroll: false })}>
+            <button type="button" className="btn btn--ghost" onClick={reset}>
               Filter zurücksetzen
             </button>
             <Link href="/builder" className="btn btn--primary">

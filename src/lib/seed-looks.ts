@@ -1,4 +1,5 @@
 import { autoArrange } from "./collage";
+import { lookTotal } from "./look";
 import { getProduct, imageAspect } from "./catalog";
 import { infoFromProduct } from "./collage";
 import type { Backdrop, CanvasItem, Look, Occasion } from "./types";
@@ -17,6 +18,7 @@ function look(
   backdrop: Backdrop,
   productIds: string[],
   createdAt: string,
+  tip?: string,
 ): Look {
   const raw: CanvasItem[] = productIds.map((productId, i) => ({ uid: `${id}-${i}`, productId, x: 500, y: 600, w: 300, rotation: 0, z: i + 1 }));
   return {
@@ -33,6 +35,7 @@ function look(
     updatedAt: createdAt,
     basedOn: null,
     isExample: true,
+    tip,
   };
 }
 
@@ -45,6 +48,7 @@ export const SEED_LOOKS: Look[] = [
     "kreide",
     ["trench", "strick-camel", "jeans-dunkel", "boot-braun", "baguette-braun", "schal-karo"],
     "2026-09-28T09:00:00.000Z",
+    "Trench offen tragen und den Gürtel hinten knoten, dann bleibt der Strick sichtbar.",
   ),
   look(
     "erster-arbeitstag",
@@ -54,6 +58,7 @@ export const SEED_LOOKS: Look[] = [
     "kreide",
     ["hemd-hellblau", "blazer-schwarz", "hose-grau", "loafer-schwarz", "tote-schwarz", "uhr-silber"],
     "2026-09-26T09:00:00.000Z",
+    "Hemd heller als den Blazer wählen; die Uhr bleibt das einzige Metall.",
   ),
   look(
     "sonntag-am-see",
@@ -63,6 +68,7 @@ export const SEED_LOOKS: Look[] = [
     "papier",
     ["t-streifen", "jeans-hell", "sneaker-weiss", "tote-natur", "brille-schildpatt", "cap-navy"],
     "2026-09-24T09:00:00.000Z",
+    "Jeans einmal krempeln, damit die weissen Sneaker frei stehen.",
   ),
   look(
     "apero-am-abend",
@@ -72,6 +78,7 @@ export const SEED_LOOKS: Look[] = [
     "kreide",
     ["t-schwarz", "rock-plisse", "loafer-schwarz", "crossbody-schwarz", "kette-gold"],
     "2026-09-22T09:00:00.000Z",
+    "Bordeaux und Schwarz genügen. Die Kette über dem Shirt tragen, nicht darunter.",
   ),
   look(
     "zug-nach-lugano",
@@ -81,6 +88,7 @@ export const SEED_LOOKS: Look[] = [
     "salbei",
     ["hemd-weiss", "shorts-sand", "sneaker-gruen", "baguette-gruen", "brille-schwarz", "guertel-braun"],
     "2026-09-20T09:00:00.000Z",
+    "Hemd offen über den Bermudas, Ärmel zweimal umschlagen.",
   ),
   look(
     "kalter-morgen",
@@ -90,6 +98,7 @@ export const SEED_LOOKS: Look[] = [
     "kreide",
     ["mantel-navy", "strick-gruen", "hose-schwarz", "boot-schwarz", "beanie-rost", "crossbody-rot"],
     "2026-09-18T09:00:00.000Z",
+    "Viel Dunkelblau braucht ein warmes Teil: hier übernehmen Mütze und Tasche.",
   ),
   look(
     "karo-und-cognac",
@@ -99,6 +108,7 @@ export const SEED_LOOKS: Look[] = [
     "papier",
     ["blazer-karo", "t-weiss", "rock-schwarz", "loafer-braun", "baguette-braun", "brille-schildpatt"],
     "2026-09-16T09:00:00.000Z",
+    "Zum Karo nur einfarbige Teile; Cognac bei Schuhen und Tasche wiederholen.",
   ),
   look(
     "atelier-tag",
@@ -108,6 +118,7 @@ export const SEED_LOOKS: Look[] = [
     "papier",
     ["hoodie-grau", "hose-beige", "sneaker-weiss", "tote-natur", "kette-gold"],
     "2026-09-14T09:00:00.000Z",
+    "Grau, Beige und Weiss Ton in Ton. Die Struktur kommt vom Hoodie, nicht von Farbe.",
   ),
 ];
 
@@ -129,4 +140,30 @@ export const BACKDROPS: { id: Backdrop; label: string }[] = [
   { id: "sand", label: "Sand" },
   { id: "salbei", label: "Salbei" },
   { id: "nacht", label: "Stein" },
+];
+
+/** Style entries offered on the start page. Each one opens real, matching looks. */
+export interface StyleEntry {
+  id: string;
+  label: string;
+  line: string;
+  href: string;
+  cover: string;
+  matches: (look: Look) => boolean;
+}
+
+export const BUDGET_LIMIT = 500;
+
+export const STYLE_ENTRIES: StyleEntry[] = [
+  { id: "alltag", label: "Alltag", line: "Bequem durch die Woche", href: "/entdecken?anlass=alltag", cover: "kalter-morgen", matches: (l) => l.occasion === "alltag" },
+  { id: "buero", label: "Büro", line: "Klar, aber nicht steif", href: "/entdecken?anlass=buero", cover: "erster-arbeitstag", matches: (l) => l.occasion === "buero" },
+  { id: "wochenende", label: "Wochenende", line: "Locker und leicht", href: "/entdecken?anlass=wochenende", cover: "sonntag-am-see", matches: (l) => l.occasion === "wochenende" },
+  {
+    id: "budget",
+    label: `Unter CHF ${BUDGET_LIMIT}`,
+    line: "Ganzer Look, kleiner Preis",
+    href: `/entdecken?budget=${BUDGET_LIMIT}`,
+    cover: "atelier-tag",
+    matches: (l) => lookTotal(l.items) <= BUDGET_LIMIT,
+  },
 ];

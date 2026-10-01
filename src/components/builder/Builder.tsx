@@ -39,7 +39,10 @@ import {
 } from "@/lib/store";
 import type { Look, LookStatus, Occasion } from "@/lib/types";
 import { ProductImage } from "../GarmentArt";
+import { LookWindow } from "../LookWindow";
 import { Sheet } from "../Sheet";
+
+const START_LOOKS = ["herbst-in-bern", "erster-arbeitstag", "sonntag-am-see"];
 import { Icon } from "../Icon";
 import { BuilderCanvas } from "./BuilderCanvas";
 import { Gallery } from "./Gallery";
@@ -93,13 +96,26 @@ export function Builder() {
     const data = params.get("d");
     const fresh = params.get("neu");
     const archived = params.get("entwurf");
+    const addParam = params.get("add");
     const key = params.toString();
-    if (!lookParam && !editParam && !data && !fresh && !archived) {
+    if (!lookParam && !editParam && !data && !fresh && !archived && !addParam) {
       applied.current = "";
       return;
     }
     if (applied.current === key) return;
     applied.current = key;
+    if (addParam) {
+      // From «Gemerkt»: add to whatever is on the canvas, nothing gets replaced.
+      const p = getProduct(addParam);
+      if (p) {
+        const uid = newUid();
+        commit((s) => ({ ...s, items: addItem(s.items, p.id, lookup, uid) }));
+        setSelected(uid);
+        toast(`${p.title} liegt jetzt auf deiner Leinwand`);
+      }
+      router.replace("/builder", { scroll: false });
+      return;
+    }
     let next: Snapshot | null = null;
     let label = "";
     let archiveId: string | undefined;
@@ -270,11 +286,23 @@ export function Builder() {
 
   const emptyState = (
     <div className="canvas-empty">
-      <p className="canvas-empty__title">Deine Leinwand ist leer</p>
-      <p>Wähle Produkte aus oder ziehe sie hierher.</p>
-      <Link href="/builder?look=sonntag-am-see" className="btn btn--ghost btn--sm">
-        Mit einem Beispiel-Look starten
-      </Link>
+      <p className="canvas-empty__title">Womit fängst du an?</p>
+      <p>Übernimm einen Look und tausche Teile aus, oder wähle Produkte und ziehe sie hierher.</p>
+      <div className="canvas-start">
+        <ul className="canvas-start__list">
+          {START_LOOKS.map((id) => {
+            const l = getSeedLook(id)!;
+            return (
+              <li key={id}>
+                <Link href={`/builder?look=${id}`} className="canvas-start__item">
+                  <LookWindow items={l.items} backdrop={l.backdrop} frame="thin" />
+                  {l.title}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </div>
   );
 
