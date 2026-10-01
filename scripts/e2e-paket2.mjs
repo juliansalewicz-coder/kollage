@@ -9,7 +9,7 @@ export async function paket2({ run, base, draft }) {
     ];
     for (const [label, ok] of checks) {
       await page.goto(base + "/");
-      await page.locator(".style-chip", { hasText: label }).click();
+      await page.locator(".entry", { hasText: label }).click();
       await page.waitForURL(/\/entdecken\?/);
       await page.locator(".look-tile").first().waitFor();
       const metas = await page.locator(".look-tile__meta").allTextContents();

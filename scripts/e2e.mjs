@@ -5,8 +5,10 @@ import fs from "node:fs";
 import { paket1 } from "./e2e-paket1.mjs";
 import { paket2 } from "./e2e-paket2.mjs";
 import { paket3 } from "./e2e-paket3.mjs";
+import { review2 } from "./e2e-review2.mjs";
 
 const out = process.argv[2] || "acceptance-out/e2e";
+const only = process.env.ONLY;
 fs.mkdirSync(out, { recursive: true });
 const base = process.env.BASE_URL || "http://localhost:3100";
 let browser;
@@ -19,6 +21,7 @@ for (const channel of ["chrome", "msedge"]) {
 let failed = 0;
 
 async function run(name, viewport, fn) {
+  if (only && !name.startsWith(only)) return;
   const mobile = viewport.width < 800;
   const ctx = await browser.newContext({ viewport, hasTouch: mobile, isMobile: mobile });
   const page = await ctx.newPage();
@@ -186,6 +189,7 @@ await run("pages-desktop", { width: 1440, height: 900 }, async (page) => {
 await paket1({ run, base, out, draft });
 await paket2({ run, base, out, draft });
 await paket3({ run, base, out, draft });
+await review2({ run, base, out, draft });
 
 await browser.close();
 process.exit(failed ? 1 : 0);

@@ -22,7 +22,8 @@
   --accent-text: #b23420;
   --accent-soft: rgba(214, 64, 43, 0.09);
   --primary: #1d1d1f;
-  --serif: "New York", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, ui-serif, serif;
+  /* Editorial voice: look names, page titles, styling tips. Never in controls. */
+  --serif: var(--font-serif), "Iowan Old Style", "Palatino Linotype", Georgia, ui-serif, serif;
   --paper: #fbfaf8;
   --danger: #c4231a;
 
@@ -166,10 +167,11 @@ main:focus {
 /* ---------- type ---------- */
 
 .display {
-  font-size: clamp(2.4rem, 1.5rem + 3.6vw, 4.25rem);
-  font-weight: 600;
-  letter-spacing: -0.028em;
-  line-height: 1.06;
+  font-family: var(--serif);
+  font-size: clamp(3rem, 1.8rem + 4.4vw, 5.4rem);
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  line-height: 0.98;
 }
 
 .headline {
@@ -180,10 +182,11 @@ main:focus {
 }
 
 .page__title {
-  font-size: clamp(2rem, 1.5rem + 1.8vw, 3rem);
-  font-weight: 600;
-  letter-spacing: -0.025em;
-  line-height: 1.08;
+  font-family: var(--serif);
+  font-size: clamp(2.6rem, 1.9rem + 2.4vw, 3.9rem);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.02;
 }
 
 .wordmark {
@@ -458,8 +461,8 @@ input[type="range"] {
 }
 
 .badge--live {
-  background: var(--accent-soft);
-  color: var(--accent-text);
+  background: var(--bg-2);
+  color: var(--ink);
 }
 
 .note {
@@ -660,7 +663,7 @@ input[type="range"] {
 .tag-mark {
   position: absolute;
   z-index: 900;
-  translate: -30% -40%;
+  translate: -50% -50%;
   display: inline-grid;
   place-items: center;
   min-width: 1.85em;
@@ -677,7 +680,7 @@ input[type="range"] {
 }
 
 .tag-mark.is-lit {
-  background: var(--accent-strong);
+  background: var(--ink);
   color: #fff;
 }
 
@@ -1288,7 +1291,7 @@ input[type="range"] {
 }
 
 .buy-row.is-lit .tag-num {
-  background: var(--accent-strong);
+  background: var(--ink);
   color: #fff;
 }
 
@@ -1507,7 +1510,7 @@ input[type="range"] {
 }
 
 .look-card__meta .badge--live {
-  background: var(--accent-soft);
+  background: var(--bg-3);
 }
 
 .look-card__actions {
@@ -1785,7 +1788,7 @@ input[type="range"] {
 }
 
 .product-card:hover .product-card__add {
-  background: var(--accent-strong);
+  background: var(--accent-hover);
 }
 
 .sheet-grip,
@@ -1831,10 +1834,16 @@ input[type="range"] {
   }
 }
 
-/* In the builder, toasts appear at the top so they never cover the tools. */
+/* In the builder, toasts appear bottom left, over the product list, never over canvas tools or status. */
 body:has(.stage-dock) .toaster {
-  top: 68px;
-  bottom: auto;
+  left: var(--gutter);
+  translate: none;
+  justify-items: start;
+  max-width: 300px;
+}
+
+body:has(.stage-dock) .toast {
+  border-radius: 16px;
 }
 
 .builder__stage > .window,
@@ -2865,8 +2874,8 @@ body:has(.stage-dock) .toaster {
 .entry__label,
 .home-hero__tip-label {
   font-family: var(--serif);
-  font-weight: 500;
-  letter-spacing: -0.01em;
+  font-weight: 400;
+  letter-spacing: 0;
 }
 
 .look-tile {
@@ -3140,44 +3149,14 @@ body:has(.stage-dock) .toaster {
 }
 
 @media (max-width: 1023px) {
-  .home-hero__inner {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .featured {
-    width: min(100%, 520px);
-  }
   .entries {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 640px) {
-  .home-hero__copy {
-    display: contents;
-  }
-  .home-hero__inner {
-    gap: 16px;
-  }
-  .home-hero .display { order: 1; }
-  .home-hero__sub { order: 2; margin-top: 0; }
-  .home-hero__actions { order: 3; margin-top: 4px; }
-  .featured { order: 4; }
-  .style-chips { order: 5; margin-top: 4px; }
-  .home-hero__tip { order: 6; margin-top: 8px; }
-  .home-hero__actions .btn {
-    flex: 1 1 auto;
-  }
-  .entries {
-    gap: 10px;
-  }
-  .entry__label {
-    font-size: 18px;
-  }
-}
-
 .page__title--look {
-  font-size: clamp(2.1rem, 1.5rem + 2vw, 3.2rem);
-  letter-spacing: -0.02em;
+  font-size: clamp(2.8rem, 2rem + 2.6vw, 4.2rem);
+  letter-spacing: -0.01em;
 }
 
 .look-page__tip {
@@ -3228,7 +3207,7 @@ body:has(.stage-dock) .toaster {
 }
 
 .active-filter:hover {
-  background: var(--accent-strong);
+  background: var(--accent-hover);
 }
 
 .active-filters__reset {
@@ -3457,7 +3436,7 @@ body:has(.stage-dock) .toaster {
 }
 
 .budget__meter.is-over span {
-  background: var(--accent);
+  background: var(--danger);
 }
 
 .budget__lines {
@@ -3488,7 +3467,7 @@ body:has(.stage-dock) .toaster {
 
 .budget__lines .is-over dt,
 .budget__lines .is-over dd {
-  color: var(--accent-strong);
+  color: var(--danger);
 }
 
 .budget__ship {
@@ -3730,7 +3709,7 @@ body:has(.stage-dock) .toaster {
 }
 
 .lookbar.is-over .lookbar__state {
-  color: var(--accent-strong);
+  color: var(--danger);
   font-weight: 500;
 }
 
@@ -3831,10 +3810,17 @@ body:has(.stage-dock) .toaster {
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   body:has(.stage-dock) .toaster {
     top: 104px;
+    bottom: auto;
+    left: 50%;
+    translate: -50% 0;
+    justify-items: center;
   }
+}
+
+@media (max-width: 767px) {
   /* Outfit, selection tools and products fit one phone screen (390 x 844). */
   .builder__stage {
     --stage-w: min(100%, 560px, max(280px, calc((100svh - 460px) * 0.8)));
@@ -3846,4 +3832,691 @@ body:has(.stage-dock) .toaster {
   html {
     scroll-padding-top: 108px;
   }
+}
+
+/* =========================================================================
+   Identity v2 (see DESIGN.md): editorial serif voice, collage as surface,
+   spacing that groups related content. Overrides earlier rules on purpose.
+   ========================================================================= */
+
+:root {
+  /* Vertical rhythm: related blocks sit closer than independent sections. */
+  --space-related: clamp(40px, 5vw, 64px);
+  --space-section: clamp(64px, 8vw, 104px);
+}
+
+/* Tip text is the editorial voice: serif italic behind a poppy rule. */
+.look-tile__tip,
+.look-page__tip {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 18px;
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+.look-page__tip {
+  font-size: 20px;
+}
+
+.look-page__tip strong {
+  display: block;
+  margin-bottom: 2px;
+  font-family: var(--font);
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Look tiles and entries: the collage itself is the card, text sits free below it. */
+.look-tile__link,
+.page .look-tile__link,
+.look-page .look-tile__link {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.look-tile__link:hover,
+.page .look-tile__link:hover {
+  background: none;
+  box-shadow: none;
+  translate: none;
+}
+
+.look-tile__link .window,
+.entry__window {
+  border-radius: var(--r-lg);
+  transition: box-shadow 220ms var(--ease), translate 220ms var(--ease);
+}
+
+.look-tile__link:hover .window,
+.entry:hover .entry__window {
+  box-shadow: inset 0 0 0 1px var(--line), var(--shadow-2);
+  translate: 0 -3px;
+}
+
+.look-tile__caption {
+  padding: 14px 2px 0;
+}
+
+.look-tile__title {
+  font-size: 25px;
+  line-height: 1.1;
+}
+
+.look-tile__meta {
+  margin-top: 4px;
+}
+
+.look-tile__fav {
+  top: 12px;
+  right: 12px;
+}
+
+.entry,
+.entry:hover {
+  padding: 0;
+  background: none;
+  translate: none;
+}
+
+/* Collages keep their 4:5 format everywhere, so no garment is squeezed or cut. */
+.entry__window,
+.entry__window .window__glass {
+  aspect-ratio: 4 / 5;
+}
+
+.entry__text {
+  padding: 0 2px;
+}
+
+.entry__label {
+  font-size: 27px;
+  line-height: 1.1;
+}
+
+/* Hover/focus label on the start page collage. */
+.piece--button {
+  cursor: pointer;
+}
+
+.piece-label {
+  position: absolute;
+  z-index: 950;
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  padding: 6px 12px 7px;
+  border-radius: 12px;
+  background: rgba(29, 29, 31, 0.92);
+  color: #fff;
+  white-space: nowrap;
+  pointer-events: none;
+  translate: -50% 8px;
+  animation: label-in 160ms var(--ease-out);
+}
+
+.piece-label.is-above {
+  translate: -50% calc(-100% - 8px);
+}
+
+.piece-label__title {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.piece-label__price {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+@keyframes label-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ---------- start page ---------- */
+.home-hero {
+  padding: clamp(20px, 3vw, 40px) 0 0;
+}
+
+.home-hero__inner {
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  /* Left column centred against the outfit. */
+  grid-template-areas:
+    ". fig"
+    "copy fig"
+    "more fig"
+    ". fig";
+  grid-template-rows: 1fr auto auto 1fr;
+  column-gap: clamp(32px, 5vw, 80px);
+  row-gap: 32px;
+  align-items: start;
+}
+
+.home-hero__copy {
+  grid-area: copy;
+}
+
+.home-hero__sub {
+  margin-top: 20px;
+  max-width: 30ch;
+}
+
+.home-hero__more {
+  grid-area: more;
+  display: grid;
+  gap: 20px;
+  align-content: start;
+}
+
+.featured {
+  grid-area: fig;
+  justify-self: end;
+  width: min(100%, calc((100svh - 56px - 40px - 120px) * 0.8));
+}
+
+.featured__window {
+  border-radius: var(--r-xl);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.featured__plate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  padding: 16px 4px 0;
+}
+
+.featured__id {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.featured__title {
+  font-family: var(--serif);
+  font-size: 26px;
+  line-height: 1.1;
+}
+
+.featured__title:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.featured__meta {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.featured__cta {
+  flex: none;
+}
+
+.howto {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+  font-size: 16px;
+  color: var(--ink-2);
+}
+
+.howto li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.howto__n {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.home-hero__blank {
+  justify-self: start;
+  font-size: 16px;
+}
+
+/* Sections: entries belong to the hero (related), the editorial block is a new chapter (tint). */
+.section--related {
+  padding: var(--space-related) 0 var(--space-section);
+}
+
+.section--tint {
+  padding: var(--space-section) 0;
+}
+
+.facts-strip {
+  border-top: 0;
+  background: var(--bg-2);
+  padding: 0 0 40px;
+}
+
+
+
+@media (max-width: 900px) {
+  .home-hero__inner {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "copy"
+      "fig"
+      "more";
+    grid-template-rows: auto;
+    row-gap: 20px;
+  }
+  .home-hero__copy {
+    padding-top: 4px;
+  }
+  .home-hero .display {
+    font-size: clamp(2.9rem, 2rem + 4vw, 3.6rem);
+  }
+  .home-hero__sub {
+    margin-top: 10px;
+    font-size: 17px;
+    max-width: none;
+  }
+  .featured {
+    justify-self: center;
+    /* Outfit and its action fit the first phone screen. */
+    width: min(100%, 520px, max(240px, calc((100svh - 470px) * 0.8)));
+  }
+  .featured__plate {
+    flex-direction: column;
+    align-items: stretch;
+    padding-top: 12px;
+  }
+  .featured__cta {
+    min-height: 50px;
+    font-size: 17px;
+  }
+  .home-hero__more {
+    padding-top: 12px;
+  }
+  .entries {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px 14px;
+  }
+  .entry__label {
+    font-size: 23px;
+  }
+}
+
+/* ---------- builder: save status, compact phone bar ---------- */
+.builder__status {
+  padding-top: 20px;
+  min-width: 0;
+}
+
+.builder__status .save-status__detail {
+  max-width: 46ch;
+}
+
+.save-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-2);
+  min-width: 0;
+}
+
+.save-status > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.save-status svg {
+  flex: none;
+}
+
+.save-status.is-ok svg {
+  color: #1e6b3a;
+}
+
+.save-status.is-warn {
+  color: var(--danger);
+  font-weight: 500;
+}
+
+.save-status.is-muted {
+  color: var(--muted);
+}
+
+.save-status__detail {
+  display: block;
+  margin-top: 2px;
+  padding-left: 22px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.mbar,
+.builder__error--m,
+.idle-tools {
+  display: none;
+}
+
+.save-box {
+  margin: 4px 0 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--bg-2);
+}
+
+.save-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.save-action {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--bg-2);
+  color: var(--ink);
+  text-align: left;
+  transition: background-color 160ms var(--ease);
+}
+
+.save-action:hover {
+  background: var(--bg-3);
+}
+
+.save-action--primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.save-action--primary:hover {
+  background: var(--accent-hover);
+}
+
+.save-action__label {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.save-action__hint {
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+.sheet--save .builder__title {
+  margin-bottom: 12px;
+}
+
+@media (max-width: 1023px) {
+  .builder__bar,
+  .stage-tools {
+    display: none;
+  }
+  .builder {
+    padding-top: 12px;
+  }
+  .mbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    align-items: center;
+    gap: 4px;
+    max-width: 560px;
+  }
+  .mbar__look {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
+    min-height: 48px;
+    padding: 5px 12px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--bg);
+    box-shadow: inset 0 0 0 1px var(--line);
+    text-align: left;
+    color: var(--ink);
+  }
+  .mbar__title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .mbar__title {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .mbar__title svg {
+    flex: none;
+    color: var(--muted);
+  }
+  .mbar .save-status {
+    font-size: 12px;
+  }
+  .mbar .save-status svg {
+    width: 13px;
+    height: 13px;
+  }
+  .tool--icon {
+    min-width: 40px;
+    padding: 0 8px;
+  }
+  .mbar__save {
+    margin-left: 4px;
+  }
+  .builder__error--m {
+    display: block;
+    max-width: 560px;
+    margin-top: 8px;
+  }
+  .builder__body {
+    margin-top: 12px;
+  }
+  .idle-tools {
+    display: flex;
+    gap: 2px;
+  }
+  .stage-dock .piece-tools.is-idle {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .stage-dock .piece-tools.is-idle .piece-tools__hint {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 12.5px;
+    line-height: 1.3;
+  }
+  .idle-tools .tool {
+    flex-direction: row;
+    min-height: 40px;
+    padding: 0 10px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 767px) {
+  .builder__stage {
+    /* Compact top bar: the outfit gets the screen. */
+    --stage-w: min(100%, 560px, max(280px, calc((100svh - 330px) * 0.8)));
+  }
+}
+
+/* ---------- motion feedback (builder) ----------
+   Short and quiet. Dragging never animates: position follows the pointer directly.
+   prefers-reduced-motion cuts all of it via the global rule above. */
+.piece__inner,
+.piece__ghost {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+@keyframes piece-arrive {
+  from {
+    opacity: 0;
+    scale: 0.88;
+    translate: 0 3%;
+  }
+  60% {
+    opacity: 1;
+  }
+}
+
+.piece--edit.fx-add .piece__inner {
+  animation: piece-arrive 300ms var(--ease-out) both;
+}
+
+/* A soft ring marks where the new piece landed. */
+.piece--edit.fx-add::after {
+  content: "";
+  position: absolute;
+  inset: -4%;
+  border-radius: 12px;
+  box-shadow: 0 0 0 2px var(--accent);
+  opacity: 0;
+  pointer-events: none;
+  animation: arrive-ring 700ms var(--ease-out);
+}
+
+@keyframes arrive-ring {
+  0% {
+    opacity: 0;
+    scale: 0.96;
+  }
+  25% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    scale: 1.03;
+  }
+}
+
+@keyframes swap-in {
+  from {
+    opacity: 0;
+    scale: 0.94;
+  }
+}
+
+@keyframes swap-out {
+  to {
+    opacity: 0;
+    scale: 1.05;
+  }
+}
+
+.piece--edit.fx-swap .piece__inner {
+  animation: swap-in 320ms var(--ease-out) both;
+}
+
+.piece__ghost {
+  animation: swap-out 260ms var(--ease) forwards;
+  pointer-events: none;
+}
+
+@keyframes frame-in {
+  from {
+    opacity: 0;
+    scale: 0.97;
+  }
+}
+
+.selection-frame {
+  animation: frame-in 140ms var(--ease-out);
+}
+
+/* Prices: the number settles, the difference stays visible for a moment. */
+.ticker {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.ticker__value.is-changed {
+  animation: tick 260ms var(--ease-out);
+}
+
+@keyframes tick {
+  from {
+    opacity: 0.3;
+    translate: 0 4px;
+  }
+}
+
+.ticker__delta {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 980px;
+  animation: delta 1800ms var(--ease) forwards;
+}
+
+.ticker__delta.is-down {
+  color: #1e6b3a;
+  background: rgba(30, 107, 58, 0.1);
+}
+
+.ticker__delta.is-up {
+  color: var(--ink-2);
+  background: var(--bg-3);
+}
+
+@keyframes delta {
+  0% {
+    opacity: 0;
+    translate: 0 4px;
+  }
+  12%,
+  80% {
+    opacity: 1;
+    translate: 0 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.product-card__in {
+  animation: tick 220ms var(--ease-out);
+}
+
+.lookbar .ticker__delta {
+  font-size: 11px;
+  padding: 0 5px;
+}
+
+.tool:disabled .tool__label {
+  color: inherit;
+}
+
+/* A focused piece comes to the front so its focus ring is never hidden by overlapping garments. */
+.piece--button:focus-visible {
+  z-index: 940 !important;
 }

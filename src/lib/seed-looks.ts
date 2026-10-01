@@ -1,4 +1,4 @@
-import { autoArrange } from "./collage";
+import { autoArrange, clampItem } from "./collage";
 import { lookTotal } from "./look";
 import { getProduct, imageAspect } from "./catalog";
 import { infoFromProduct } from "./collage";
@@ -10,6 +10,17 @@ export const lookup = (productId: string) => {
   return product ? infoFromProduct(product, imageAspect(product)) : undefined;
 };
 
+/** Hand-set composition: productId -> [x, y, width, rotation, layer] on the 1000 x 1250 canvas. */
+type Layout = Record<string, [number, number, number, number, number]>;
+
+/**
+ * Editorial looks read as one outfit, not as a scattered moodboard: pieces a little larger
+ * and pulled towards the centre so they nearly touch. The builder keeps the plain arrangement.
+ */
+function tighten(items: CanvasItem[]): CanvasItem[] {
+  return items.map((it) => clampItem({ ...it, x: 500 + (it.x - 500) * 0.93, y: 640 + (it.y - 640) * 0.93, w: it.w * 1.14 }));
+}
+
 function look(
   id: string,
   title: string,
@@ -19,14 +30,21 @@ function look(
   productIds: string[],
   createdAt: string,
   tip?: string,
+  layout?: Layout,
 ): Look {
   const raw: CanvasItem[] = productIds.map((productId, i) => ({ uid: `${id}-${i}`, productId, x: 500, y: 600, w: 300, rotation: 0, z: i + 1 }));
+  const items = layout
+    ? raw.map((it) => {
+        const [x, y, w, rotation, z] = layout[it.productId];
+        return clampItem({ ...it, x, y, w, rotation, z });
+      })
+    : tighten(autoArrange(raw, lookup));
   return {
     id,
     title,
     note,
     occasion,
-    items: autoArrange(raw, lookup),
+    items,
     backdrop,
     status: "veroeffentlicht",
     authorName: "Kollage Redaktion",
@@ -49,6 +67,14 @@ export const SEED_LOOKS: Look[] = [
     ["trench", "strick-camel", "jeans-dunkel", "boot-braun", "baguette-braun", "schal-karo"],
     "2026-09-28T09:00:00.000Z",
     "Trench offen tragen und den Gürtel hinten knoten, dann bleibt der Strick sichtbar.",
+    {
+      trench: [320, 450, 440, -2, 2],
+      "strick-camel": [655, 395, 400, 3, 3],
+      "schal-karo": [850, 320, 200, 7, 5],
+      "jeans-dunkel": [470, 930, 310, -1, 1],
+      "baguette-braun": [800, 765, 300, -5, 4],
+      "boot-braun": [740, 1085, 290, 0, 6],
+    },
   ),
   look(
     "erster-arbeitstag",
@@ -65,7 +91,7 @@ export const SEED_LOOKS: Look[] = [
     "Sonntag am See",
     "Streifen, helle Jeans und eine Tasche, in die ein Buch und ein Badetuch passen.",
     "wochenende",
-    "papier",
+    "kreide",
     ["t-streifen", "jeans-hell", "sneaker-weiss", "tote-natur", "brille-schildpatt", "cap-navy"],
     "2026-09-24T09:00:00.000Z",
     "Jeans einmal krempeln, damit die weissen Sneaker frei stehen.",
@@ -85,7 +111,7 @@ export const SEED_LOOKS: Look[] = [
     "Im Zug nach Lugano",
     "Leichtes Hemd, Bermudas und grüne Sneaker für den ersten warmen Tag südlich des Gotthards.",
     "reise",
-    "salbei",
+    "kreide",
     ["hemd-weiss", "shorts-sand", "sneaker-gruen", "baguette-gruen", "brille-schwarz", "guertel-braun"],
     "2026-09-20T09:00:00.000Z",
     "Hemd offen über den Bermudas, Ärmel zweimal umschlagen.",
@@ -105,7 +131,7 @@ export const SEED_LOOKS: Look[] = [
     "Karo und Cognac",
     "Karierter Blazer zum schlichten Rock. Die Lederteile halten alles in einem warmen Ton.",
     "buero",
-    "papier",
+    "kreide",
     ["blazer-karo", "t-weiss", "rock-schwarz", "loafer-braun", "baguette-braun", "brille-schildpatt"],
     "2026-09-16T09:00:00.000Z",
     "Zum Karo nur einfarbige Teile; Cognac bei Schuhen und Tasche wiederholen.",
@@ -115,7 +141,7 @@ export const SEED_LOOKS: Look[] = [
     "Atelier-Tag",
     "Hoodie, weite Chino und weisse Sneaker. Bequem genug für einen langen Tag auf den Beinen.",
     "wochenende",
-    "papier",
+    "kreide",
     ["hoodie-grau", "hose-beige", "sneaker-weiss", "tote-natur", "kette-gold"],
     "2026-09-14T09:00:00.000Z",
     "Grau, Beige und Weiss Ton in Ton. Die Struktur kommt vom Hoodie, nicht von Farbe.",

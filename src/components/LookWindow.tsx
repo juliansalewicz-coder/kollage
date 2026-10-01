@@ -1,11 +1,12 @@
 import { bestOffer, getProduct, imageAspect } from "@/lib/catalog";
 import { formatCHF } from "@/lib/format";
-import { CANVAS_H, CANVAS_W, itemHeight, itemStyle, readingOrder } from "@/lib/collage";
+import { CANVAS_H, CANVAS_W, itemHeight, itemStyle } from "@/lib/collage";
+import { outfitOrder } from "@/lib/look";
 import type { Backdrop, CanvasItem } from "@/lib/types";
 import { ProductImage } from "./GarmentArt";
 
 export function numberPieces(items: CanvasItem[]): Map<string, number> {
-  return new Map(readingOrder(items).map((it, i) => [it.uid, i + 1]));
+  return new Map(outfitOrder(items).map((it, i) => [it.uid, i + 1]));
 }
 
 /** Read-only shop window: the collage on its paper sweep, optionally with numbered price tags. */
@@ -21,6 +22,7 @@ export function LookWindow({
   pieceSizes = "160px",
   onPieceActivate,
   activePiece = null,
+  labels = false,
 }: {
   items: CanvasItem[];
   backdrop: Backdrop;
@@ -34,6 +36,8 @@ export function LookWindow({
   /** Makes every piece a button (look page only; never inside a link). */
   onPieceActivate?: (uid: string) => void;
   activePiece?: string | null;
+  /** Name and price next to the piece under the pointer or keyboard focus, instead of permanent number tags. */
+  labels?: boolean;
 }) {
   const numbers = tags ? numberPieces(items) : null;
   const sorted = [...items].sort((a, b) => a.z - b.z);
@@ -76,13 +80,35 @@ export function LookWindow({
             </div>
           );
         })}
+        {labels &&
+          (() => {
+            const it = items.find((i) => i.uid === highlight);
+            const product = it ? getProduct(it.productId) : undefined;
+            if (!it || !product) return null;
+            const h = itemHeight(it, imageAspect(product));
+            const below = (it.y + h / 2) / CANVAS_H < 0.84;
+            const left = Math.min(80, Math.max(20, (it.x / CANVAS_W) * 100));
+            const top = below ? ((it.y + h / 2) / CANVAS_H) * 100 : ((it.y - h / 2) / CANVAS_H) * 100;
+            return (
+              <span
+                key={`l-${it.uid}`}
+                className={`piece-label ${below ? "is-below" : "is-above"}`}
+                style={{ left: `${left}%`, top: `${top}%` }}
+                aria-hidden="true"
+              >
+                <span className="piece-label__title">{product.title}</span>
+                <span className="piece-label__price num">{formatCHF(bestOffer(product).priceCHF)}</span>
+              </span>
+            );
+          })()}
         {numbers &&
           sorted.map((it) => {
             const product = getProduct(it.productId);
             if (!product) return null;
             const h = itemHeight(it, imageAspect(product));
-            const left = Math.min(90, Math.max(2, ((it.x - it.w / 2) / CANVAS_W) * 100 + 1));
-            const top = Math.min(92, Math.max(2, ((it.y - h / 2) / CANVAS_H) * 100));
+            // On the garment itself (upper middle), so overlapping pieces never hide their number.
+            const left = Math.min(95, Math.max(5, (it.x / CANVAS_W) * 100));
+            const top = Math.min(95, Math.max(4, ((it.y - h * 0.22) / CANVAS_H) * 100));
             return (
               <span
                 key={`t-${it.uid}`}

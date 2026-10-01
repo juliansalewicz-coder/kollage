@@ -66,10 +66,12 @@ export function useBuilder() {
 
   /* Autosave, debounced. `dirty` makes sure the last change is written when the page is left early. */
   const dirty = useRef(false);
+  /** Result of the last autosave: the UI only claims "gesichert" after a write that really succeeded. */
+  const [draftSaved, setDraftSaved] = useState<boolean | null>(null);
   const flush = useCallback(() => {
     if (!dirty.current) return;
     dirty.current = false;
-    setDraft({ ...live.current, updatedAt: new Date().toISOString() });
+    setDraftSaved(setDraft({ ...live.current, updatedAt: new Date().toISOString() }));
   }, []);
 
   useEffect(() => {
@@ -133,5 +135,6 @@ export function useBuilder() {
     canUndo: h.past.length > 0,
     canRedo: h.future.length > 0,
     live,
+    draftSaved,
   };
 }

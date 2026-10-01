@@ -31,8 +31,12 @@ export function Gallery({
   open: boolean;
 }) {
   const searchRef = useRef<HTMLInputElement>(null);
+  const headRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
-    if (open) searchRef.current?.focus({ preventScroll: true });
+    if (!open) return;
+    // Touch screens: no automatic focus in the search field, the keyboard would cover the products.
+    if (window.matchMedia("(pointer: coarse)").matches) headRef.current?.focus({ preventScroll: true });
+    else searchRef.current?.focus({ preventScroll: true });
   }, [open]);
   const favs = useFavorites();
   const [scope, setScope] = useState<Scope>("alle");
@@ -67,7 +71,9 @@ export function Gallery({
     <div className="gallery">
       <div className="sheet-grip" aria-hidden="true" />
       <div className="gallery__head">
-        <h2 className="panel__title">Produkte</h2>
+        <h2 className="panel__title" ref={headRef} tabIndex={-1}>
+          Produkte
+        </h2>
         <button type="button" className="btn btn--secondary btn--sm sheet-close" onClick={onClose}>
           Fertig
         </button>

@@ -4,15 +4,18 @@ import { useEffect, useState } from "react";
 import type { BudgetSummary } from "@/lib/budget";
 import { formatCHF } from "@/lib/format";
 import { Icon } from "../Icon";
+import { PriceTicker } from "./PriceTicker";
 
 /** Personal outfit budget. Informs, never blocks. Product value and shipping are shown apart. */
 export function BudgetBox({
   summary,
+  loadKey = 0,
   idPrefix,
   onBudget,
   onCheaper,
 }: {
   summary: BudgetSummary;
+  loadKey?: number;
   idPrefix: string;
   onBudget: (value: number | null) => void;
   /** Best same-kind swap on the canvas, shown when over budget. */
@@ -60,7 +63,9 @@ export function BudgetBox({
       <dl className="budget__lines" id={`${idPrefix}-budget-state`} aria-live="polite">
         <div>
           <dt>Produktwert</dt>
-          <dd className="num">{formatCHF(summary.productValue)}</dd>
+          <dd>
+            <PriceTicker value={summary.productValue} resetKey={loadKey} />
+          </dd>
         </div>
         {summary.remaining !== null && (
           <div className={over ? "is-over" : "is-ok"}>

@@ -10,7 +10,10 @@ import { LookWindow } from "./LookWindow";
 import { ProductDetails } from "./ProductDetails";
 import { Sheet } from "./Sheet";
 
-/** The start page outfit: tap a piece for price and shop, or take the whole look into the builder. */
+/**
+ * The start page outfit. No number tags at rest: pointing at or focusing a piece shows its name
+ * and price, a tap or Enter opens price and shop. The action to take the look sits right under it.
+ */
 export function FeaturedLook({ look }: { look: Look }) {
   const [lit, setLit] = useState<string | null>(null);
   const [openUid, setOpenUid] = useState<string | null>(null);
@@ -21,22 +24,27 @@ export function FeaturedLook({ look }: { look: Look }) {
       <LookWindow
         items={look.items}
         backdrop={look.backdrop}
-        tags
+        labels
         highlight={lit}
         onHighlight={setLit}
         onPieceActivate={setOpenUid}
         activePiece={openUid}
-        label={`Look «${look.title}». Teil antippen für Preis und Shop.`}
-        pieceSizes="(max-width: 767px) 40vw, 240px"
+        label={`Look «${look.title}». Teil auswählen für Preis und Shop.`}
+        pieceSizes="(max-width: 767px) 45vw, 280px"
         className="featured__window"
       />
-      <figcaption className="featured__caption">
-        <span className="featured__title">{look.title}</span>
-        <span className="featured__meta">
-          {pieces(distinctCount(look.items))} · <span className="num">{formatCHF(lookTotal(look.items))}</span> · Teil antippen für Details
+      <figcaption className="featured__plate">
+        <span className="featured__id">
+          <Link href={`/look/${look.id}`} className="featured__title">
+            {look.title}
+          </Link>
+          <span className="featured__meta">
+            {pieces(distinctCount(look.items))} · <span className="num">{formatCHF(lookTotal(look.items))}</span>
+            <span className="featured__hint"> · Teil antippen für Details</span>
+          </span>
         </span>
-        <Link href={`/look/${look.id}`} className="link-arrow">
-          Zum Look <Icon name="chevronRight" size={16} />
+        <Link href={`/builder?look=${look.id}`} className="btn btn--primary featured__cta">
+          Diesen Look anpassen <Icon name="chevronRight" size={16} />
         </Link>
       </figcaption>
       <Sheet open={Boolean(openRow)} onClose={() => setOpenUid(null)} title={openRow?.product.title ?? ""} className="sheet--product">

@@ -22,6 +22,14 @@ interface Drag {
   moved: boolean;
 }
 
+export interface CanvasFx {
+  uids: string[];
+  kind: "add" | "swap";
+  /** Product shown before a swap; it fades out where the new one fades in. */
+  from?: string;
+  key: number;
+}
+
 export function BuilderCanvas({
   items,
   backdrop,
@@ -32,6 +40,7 @@ export function BuilderCanvas({
   commit,
   onDropProduct,
   emptyState,
+  fx = null,
 }: {
   items: CanvasItem[];
   backdrop: Backdrop;
@@ -42,6 +51,8 @@ export function BuilderCanvas({
   commit: (fn: (s: Snapshot) => Snapshot) => void;
   onDropProduct: (productId: string, x: number, y: number) => void;
   emptyState: React.ReactNode;
+  /** Short feedback: pieces that just arrived, or a piece whose product was just swapped. */
+  fx?: CanvasFx | null;
 }) {
   const glass = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
@@ -211,6 +222,8 @@ export function BuilderCanvas({
           const product = getProduct(it.productId);
           if (!product) return null;
           const isSel = selected === it.uid;
+          const effect = fx && fx.uids.includes(it.uid) ? fx : null;
+          const ghost = effect?.kind === "swap" && effect.from ? getProduct(effect.from) : undefined;
           return (
             <div
               key={it.uid}
@@ -219,7 +232,7 @@ export function BuilderCanvas({
               aria-pressed={isSel}
               aria-label={`${product.title}, ${product.colorName}`}
               aria-describedby="canvas-help"
-              className={`piece piece--edit ${isSel ? "is-selected" : ""} ${lifted === it.uid ? "is-lifted" : ""} ${settling === it.uid ? "is-settling" : ""}`}
+              className={`piece piece--edit ${isSel ? "is-selected" : ""} ${lifted === it.uid ? "is-lifted" : ""} ${settling === it.uid ? "is-settling" : ""} ${effect ? `fx-${effect.kind}` : ""}`}
               style={itemStyle(it, imageAspect(product))}
               onPointerDown={(e) => begin(e, it, "move")}
               onPointerMove={move}
@@ -228,12 +241,19 @@ export function BuilderCanvas({
               onFocus={() => onSelect(it.uid)}
               onKeyDown={(e) => onKey(e, it)}
             >
-              <ProductImage product={product} className="piece__img" sizes="(max-width: 767px) 45vw, 340px" />
+              {ghost && (
+                <span key={`g${effect!.key}`} className="piece__ghost" aria-hidden="true">
+                  <ProductImage product={ghost} className="piece__img" sizes="(max-width: 767px) 45vw, 340px" />
+                </span>
+              )}
+              <span key={effect ? `n${effect.key}` : "n"} className="piece__inner">
+                <ProductImage product={product} className="piece__img" sizes="(max-width: 767px) 45vw, 340px" />
+              </span>
             </div>
           );
         })}
         {selItem && selAspect !== null && (
-          <div className="selection-frame" style={{ ...itemStyle(selItem, selAspect), zIndex: 5000 }} aria-hidden="true">
+          <div key={selItem.uid} className="selection-frame" style={{ ...itemStyle(selItem, selAspect), zIndex: 5000 }} aria-hidden="true">
             <span
               className="handle handle--rotate"
               onPointerDown={(e) => begin(e, selItem, "rotate")}

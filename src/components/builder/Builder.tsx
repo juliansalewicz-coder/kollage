@@ -36,6 +36,7 @@ import {
   toggleFavorite,
   upsertLook,
   useFavorites,
+  useLooks,
   useSession,
   useStorageStatus,
 } from "@/lib/store";
@@ -44,7 +45,8 @@ import { Icon } from "../Icon";
 import { LookWindow } from "../LookWindow";
 import { Sheet } from "../Sheet";
 import { BudgetBox } from "./BudgetBox";
-import { BuilderCanvas } from "./BuilderCanvas";
+import { BuilderCanvas, type CanvasFx } from "./BuilderCanvas";
+import { PriceTicker } from "./PriceTicker";
 import { Gallery } from "./Gallery";
 import { PieceInspector } from "./PieceInspector";
 import { ReplaceSheet } from "./ReplaceSheet";
@@ -57,13 +59,29 @@ export function Builder() {
   const params = useSearchParams();
   const session = useSession();
   const favs = useFavorites();
-  const { state, ready, commit, preview, checkpoint, undo, redo, canUndo, canRedo, live } = useBuilder();
+  const { state, ready, commit, preview, checkpoint, undo, redo, canUndo, canRedo, live, draftSaved } = useBuilder();
+  const looks = useLooks();
   const [selected, setSelected] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerOpener = useRef<HTMLButtonElement>(null);
   const [replaceFor, setReplaceFor] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [lookOpen, setLookOpen] = useState(false);
+  /** Phones: title, saving and publishing live in one sheet instead of a tall bar above the canvas. */
+  const [saveOpen, setSaveOpen] = useState(false);
+  /* Motion feedback. Pieces added while the phone drawer covers the canvas animate when it closes. */
+  const [fx, setFx] = useState<CanvasFx | null>(null);
+  const queuedAdds = useRef<string[]>([]);
+  const drawerOpenRef = useRef(false);
+  useEffect(() => {
+    if (!fx) return;
+    const t = window.setTimeout(() => setFx(null), 700);
+    return () => window.clearTimeout(t);
+  }, [fx]);
+  function arrived(uid: string) {
+    if (drawerOpenRef.current) queuedAdds.current.push(uid);
+    else setFx({ uids: [uid], kind: "add", key: Date.now() });
+  }
   const [titleError, setTitleError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [announce, setAnnounce] = useState("");
@@ -73,7 +91,14 @@ export function Builder() {
   /** Something the user asked to open while the current draft has unsaved work. */
   const [pending, setPending] = useState<{ next: Snapshot; label: string; archiveId?: string } | null>(null);
 
+  /** Changes whenever a whole look is loaded, so price feedback only follows real edits. */
+  const [loadKey, setLoadKey] = useState(0);
+  useEffect(() => {
+    if (ready) setLoadKey((k) => k + 1);
+  }, [ready]);
+
   function apply(next: Snapshot, archiveId?: string) {
+    setLoadKey((k) => k + 1);
     // The personal budget belongs to the person, not to the look being opened.
     commit((cur) => ({ ...next, budget: cur.budget ?? null }));
     setSelected(null);
@@ -201,15 +226,22 @@ export function Builder() {
   const summary = useMemo(() => budgetSummary(items, budget), [items, budget]);
   const replaceItemNow = replaceFor ? items.find((i) => i.uid === replaceFor) ?? null : null;
 
+  drawerOpenRef.current = drawerOpen;
+
   function closeDrawer() {
     setDrawerOpen(false);
     drawerOpener.current?.focus();
+    if (queuedAdds.current.length) {
+      setFx({ uids: queuedAdds.current, kind: "add", key: Date.now() });
+      queuedAdds.current = [];
+    }
   }
 
   function add(productId: string) {
     const uid = newUid();
     commit((s) => ({ ...s, items: addItem(s.items, productId, lookup, uid) }));
     setSelected(uid);
+    arrived(uid);
     setFormError(null);
     const p = getProduct(productId);
     if (p) setAnnounce(`${p.title} liegt auf der Leinwand. ${pieces(items.length + 1)} insgesamt.`);
@@ -225,6 +257,7 @@ export function Builder() {
       items: [...s.items, clampItem({ uid, productId, x, y, w: defaultWidth(info), rotation: 0, z: s.items.reduce((m, i) => Math.max(m, i.z), 0) + 1 })],
     }));
     setSelected(uid);
+    arrived(uid);
   }
 
   const edit = (fn: (xs: typeof items) => typeof items) => commit((s) => ({ ...s, items: fn(s.items) }));
@@ -236,6 +269,7 @@ export function Builder() {
     const oldP = before ? getProduct(before.productId) : undefined;
     const newP = getProduct(productId);
     edit((xs) => replaceItem(xs, uid, productId, lookup));
+    if (before) setFx({ uids: [uid], kind: "swap", from: before.productId, key: Date.now() });
     setReplaceFor(null);
     setMoreOpen(false);
     setSelected(uid);
@@ -276,6 +310,7 @@ export function Builder() {
     }
     setFormError(null);
     requireLogin("Melde dich an, um deinen Look in «Meine Looks» zu speichern.", () => {
+      setSaveOpen(false);
       const { look, persisted } = persist();
       const what = look.status === "veroeffentlicht" ? "Änderungen veröffentlicht" : "Gespeichert in «Meine Looks»";
       toast(persisted ? what : `${what}, aber nur für diese Sitzung: Browserspeicher blockiert`);
@@ -293,7 +328,11 @@ export function Builder() {
       problems.push("items");
     } else setFormError(null);
     if (problems[0] === "title") {
-      titleRef.current?.focus();
+      // On phones the title field lives in the save sheet.
+      if (window.matchMedia("(max-width: 1023px)").matches) {
+        if (saveOpen) document.getElementById("sheet-look-title")?.focus();
+        else setSaveOpen(true);
+      } else titleRef.current?.focus();
       return;
     }
     if (problems.length) return;
@@ -310,6 +349,69 @@ export function Builder() {
 
   const ownLook = state.lookId && session ? getLooks().find((l) => l.id === state.lookId && l.ownerEmail === session.email) : undefined;
   const isPublished = ownLook?.status === "veroeffentlicht";
+
+  /* What is saved where. Only claims "gesichert" after a write that really succeeded. */
+  const unsaved = draftNeedsGuard(state, looks);
+  const blocked = storageStatus === "sitzung" || draftSaved === false;
+  const status: { tone: "ok" | "warn" | "muted"; text: string; detail: string } = blocked
+    ? { tone: "warn", text: "Nicht gesichert: Browserspeicher blockiert", detail: "Änderungen gehen beim Schliessen des Tabs verloren." }
+    : !items.length
+      ? { tone: "muted", text: "Leere Leinwand", detail: "Sobald ein Teil darauf liegt, wird dein Entwurf in diesem Browser gesichert." }
+      : ownLook && !unsaved
+        ? { tone: "ok", text: isPublished ? "Veröffentlicht, alles gespeichert" : "Gespeichert in «Meine Looks»", detail: "" }
+        : draftSaved
+          ? {
+              tone: "ok",
+              text: "Entwurf in diesem Browser gesichert",
+              detail: isPublished ? "Änderungen sind noch nicht veröffentlicht." : "Noch nicht in «Meine Looks» gespeichert.",
+            }
+          : { tone: "muted", text: "Entwurf wird gesichert …", detail: "" };
+  const saveLabel = !session ? "Anmelden & speichern" : isPublished ? "Änderungen veröffentlichen" : "Speichern";
+  const publishLabel = !session ? "Anmelden & veröffentlichen" : "Veröffentlichen";
+  const saveHint = isPublished ? "Aktualisiert die Look-Seite und den Eintrag unter «Entdecken»." : "Legt den Look unter «Meine Looks» ab.";
+  const publishHint = "Zeigt den Look mit eigener Seite unter «Entdecken».";
+  const demoHint = "Demo-Anmeldung: kein echtes Konto. Alles bleibt in diesem Browser und wird nicht zwischen Geräten abgeglichen.";
+  /** One line under the desktop status: what the two buttons add to the automatic draft. */
+  const explain = `Speichern legt den Look in «Meine Looks», Veröffentlichen zeigt ihn unter «Entdecken». ${session ? "Nur in diesem Browser." : "Demo-Anmeldung, nur in diesem Browser."}`;
+
+  const short: Record<string, string> = {
+    "Entwurf in diesem Browser gesichert": "Entwurf gesichert",
+    "Nicht gesichert: Browserspeicher blockiert": "Nicht gesichert",
+    "Gespeichert in «Meine Looks»": "In «Meine Looks»",
+    "Veröffentlicht, alles gespeichert": "Veröffentlicht",
+  };
+  const statusLine = (compact = false) => (
+    <span className={`save-status is-${status.tone}`} role="status">
+      <Icon name={status.tone === "warn" ? "lock" : status.tone === "ok" ? "check" : "edit"} size={16} />
+      <span>{compact ? (short[status.text] ?? status.text) : status.text}</span>
+    </span>
+  );
+
+  const titleField = (id: string, ref?: React.Ref<HTMLInputElement>) => (
+    <div className="field builder__title">
+      <label htmlFor={id}>Titel des Looks</label>
+      <input
+        ref={ref}
+        id={id}
+        value={state.title}
+        maxLength={80}
+        placeholder="z. B. Herbst in der Altstadt"
+        onFocus={checkpoint}
+        onChange={(e) => {
+          const v = e.target.value;
+          preview((s) => ({ ...s, title: v }));
+          if (titleError && v.trim()) setTitleError(null);
+        }}
+        aria-invalid={titleError ? true : undefined}
+        aria-describedby={titleError ? `${id}-err` : undefined}
+      />
+      {titleError && (
+        <p id={`${id}-err`} className="field__error" role="alert">
+          {titleError}
+        </p>
+      )}
+    </div>
+  );
 
   const emptyState = (
     <div className="canvas-empty">
@@ -361,6 +463,7 @@ export function Builder() {
       </h2>
       <BudgetBox
         summary={summary}
+        loadKey={loadKey}
         idPrefix={prefix}
         onBudget={(value) => preview((s) => ({ ...s, budget: value }))}
         onCheaper={
@@ -381,7 +484,67 @@ export function Builder() {
   );
 
   // Budget stays first so selecting a piece never pushes it out of view.
-  const lookPanel = (prefix: string, withBudget = true) => (
+  const lookDetails = (prefix: string) => (
+    <details className="side-block details" open={prefix === "side"}>
+      <summary className="panel__title details__summary">
+        Look-Details <Icon name="chevronDown" size={16} />
+      </summary>
+      <div className="details__body">
+        <div className="field">
+          <label htmlFor={`${prefix}-occasion`}>Anlass</label>
+          <select
+            id={`${prefix}-occasion`}
+            value={state.occasion}
+            onChange={(e) => {
+              const occasion = e.target.value as Occasion;
+              commit((s) => ({ ...s, occasion }));
+            }}
+          >
+            {OCCASIONS.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor={`${prefix}-note`}>Notiz zum Look (optional)</label>
+          <textarea
+            id={`${prefix}-note`}
+            rows={3}
+            maxLength={280}
+            value={state.note}
+            placeholder="Wofür ist der Look gedacht?"
+            onFocus={checkpoint}
+            onChange={(e) => {
+              const note = e.target.value;
+              preview((s) => ({ ...s, note }));
+            }}
+          />
+        </div>
+        <fieldset className="field">
+          <legend>Hintergrund der Leinwand</legend>
+          <div className="backdrops">
+            {BACKDROPS.map((b) => (
+              <label key={b.id} className="backdrop-opt" data-backdrop={b.id}>
+                <input
+                  type="radio"
+                  name={`${prefix}-backdrop`}
+                  value={b.id}
+                  checked={state.backdrop === b.id}
+                  onChange={() => commit((s) => ({ ...s, backdrop: b.id }))}
+                />
+                <span className="backdrop-opt__chip" aria-hidden="true" />
+                <span className="backdrop-opt__label">{b.label}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      </div>
+    </details>
+  );
+
+  const lookPanel = (prefix: string, withBudget = true, withDetails = true) => (
     <>
       {withBudget && budgetPanel(prefix)}
       <section className="side-block" aria-labelledby={`${prefix}-list-title`}>
@@ -413,63 +576,7 @@ export function Builder() {
         )}
       </section>
 
-      <details className="side-block details" open={prefix === "side"}>
-        <summary className="panel__title details__summary">
-          Look-Details <Icon name="chevronDown" size={16} />
-        </summary>
-        <div className="details__body">
-          <div className="field">
-            <label htmlFor={`${prefix}-occasion`}>Anlass</label>
-            <select
-              id={`${prefix}-occasion`}
-              value={state.occasion}
-              onChange={(e) => {
-                const occasion = e.target.value as Occasion;
-                commit((s) => ({ ...s, occasion }));
-              }}
-            >
-              {OCCASIONS.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor={`${prefix}-note`}>Notiz zum Look (optional)</label>
-            <textarea
-              id={`${prefix}-note`}
-              rows={3}
-              maxLength={280}
-              value={state.note}
-              placeholder="Wofür ist der Look gedacht?"
-              onFocus={checkpoint}
-              onChange={(e) => {
-                const note = e.target.value;
-                preview((s) => ({ ...s, note }));
-              }}
-            />
-          </div>
-          <fieldset className="field">
-            <legend>Hintergrund der Leinwand</legend>
-            <div className="backdrops">
-              {BACKDROPS.map((b) => (
-                <label key={b.id} className="backdrop-opt" data-backdrop={b.id}>
-                  <input
-                    type="radio"
-                    name={`${prefix}-backdrop`}
-                    value={b.id}
-                    checked={state.backdrop === b.id}
-                    onChange={() => commit((s) => ({ ...s, backdrop: b.id }))}
-                  />
-                  <span className="backdrop-opt__chip" aria-hidden="true" />
-                  <span className="backdrop-opt__label">{b.label}</span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-        </div>
-      </details>
+      {withDetails && lookDetails(prefix)}
     </>
   );
 
@@ -478,49 +585,20 @@ export function Builder() {
   return (
     <div className="builder" data-sheet={drawerOpen ? "open" : "closed"}>
       <div className="builder__bar">
-        <div className="field builder__title">
-          <label htmlFor="look-title">Titel des Looks</label>
-          <input
-            ref={titleRef}
-            id="look-title"
-            value={state.title}
-            maxLength={80}
-            placeholder="z. B. Herbst in der Altstadt"
-            onFocus={checkpoint}
-            onChange={(e) => {
-              const v = e.target.value;
-              preview((s) => ({ ...s, title: v }));
-              if (titleError && v.trim()) setTitleError(null);
-            }}
-            aria-invalid={titleError ? true : undefined}
-            aria-describedby={titleError ? "look-title-err" : "builder-status"}
-          />
-          {titleError && (
-            <p id="look-title-err" className="field__error" role="alert">
-              {titleError}
-            </p>
-          )}
-        </div>
+        {titleField("look-title", titleRef)}
         <div className="builder__status" id="builder-status">
-          {storageStatus === "sitzung" ? (
-            <span className="builder__saved is-warning" role="status">
-              <Icon name="lock" size={16} /> Nicht dauerhaft gesichert: Browserspeicher blockiert. Änderungen gehen beim Schliessen verloren.
-            </span>
-          ) : isPublished ? (
-            <span className="builder__saved is-public">
-              Veröffentlichter Look: «Änderungen veröffentlichen» macht deine Änderungen sofort öffentlich sichtbar.
-            </span>
-          ) : (
-            <span className="builder__saved">{ownLook ? "Gespeicherter Look, Entwurf wird laufend gesichert" : "Entwurf, automatisch in diesem Browser gesichert"}</span>
-          )}
+          {statusLine()}
+          <span className="save-status__detail" id="builder-explain">
+            {ownLook && status.detail ? status.detail : explain}
+          </span>
         </div>
         <div className="builder__actions">
-          <button type="button" className="btn btn--ghost" onClick={save}>
-            {isPublished ? "Änderungen veröffentlichen" : "Speichern"}
+          <button type="button" className="btn btn--ghost" onClick={save} aria-describedby="builder-explain">
+            {saveLabel}
           </button>
           {!isPublished && (
-            <button type="button" className="btn btn--primary" onClick={publish}>
-              Veröffentlichen
+            <button type="button" className="btn btn--primary" onClick={publish} aria-describedby="builder-explain">
+              {publishLabel}
             </button>
           )}
         </div>
@@ -530,6 +608,52 @@ export function Builder() {
           </p>
         )}
       </div>
+
+      {/* Phones: one compact row. Title, saving and publishing open in a sheet. */}
+      <div className="mbar">
+        <button type="button" className="mbar__look" onClick={() => setSaveOpen(true)} aria-haspopup="dialog" aria-label={`Look «${state.title.trim() || "ohne Titel"}»: Titel, Speichern und Veröffentlichen. ${status.text}`}>
+          <span className="mbar__title">
+            {state.title.trim() || "Look ohne Titel"} <Icon name="edit" size={14} />
+          </span>
+          {statusLine(true)}
+        </button>
+        <button type="button" className="tool tool--icon" onClick={undo} disabled={!canUndo} aria-label="Rückgängig">
+          <Icon name="undo" />
+        </button>
+        <button type="button" className="tool tool--icon" onClick={redo} disabled={!canRedo} aria-label="Wiederholen">
+          <Icon name="redo" />
+        </button>
+        <button type="button" className="btn btn--primary btn--sm mbar__save" onClick={() => setSaveOpen(true)} aria-haspopup="dialog">
+          Speichern
+        </button>
+      </div>
+      {formError && (
+        <p className="builder__error builder__error--m" role="alert">
+          {formError}
+        </p>
+      )}
+
+      <Sheet open={saveOpen} onClose={() => setSaveOpen(false)} title="Look speichern" className="sheet--compact sheet--save" initialFocus={titleError ? "#sheet-look-title" : undefined}>
+        {titleField("sheet-look-title")}
+        <div className="save-box">
+          {statusLine()}
+          {status.detail && <span className="save-status__detail">{status.detail}</span>}
+        </div>
+        <div className="save-actions">
+          <button type="button" className="save-action" onClick={save}>
+            <span className="save-action__label">{saveLabel}</span>
+            <span className="save-action__hint">{saveHint}</span>
+          </button>
+          {!isPublished && (
+            <button type="button" className="save-action save-action--primary" onClick={publish}>
+              <span className="save-action__label">{publishLabel}</span>
+              <span className="save-action__hint">{publishHint}</span>
+            </button>
+          )}
+        </div>
+        <p className="fineprint">{session ? "Alles bleibt in diesem Browser." : demoHint}</p>
+        {lookDetails("sheet")}
+      </Sheet>
 
       <p className="sr-only" aria-live="polite">
         {announce}
@@ -565,8 +689,8 @@ export function Builder() {
         {inspector("more")}
       </Sheet>
 
-      <Sheet open={lookOpen} onClose={() => setLookOpen(false)} title="Budget und Look" className="sheet--compact">
-        {lookPanel("sheet")}
+      <Sheet open={lookOpen} onClose={() => setLookOpen(false)} title="Budget und Teile" className="sheet--compact">
+        {lookPanel("sheet", true, false)}
       </Sheet>
 
       <div className="builder__body">
@@ -613,6 +737,7 @@ export function Builder() {
             commit={commit}
             onDropProduct={dropAt}
             emptyState={emptyState}
+            fx={fx}
           />
 
           {/* On phones this dock sticks to the bottom so the tools stay next to the outfit. */}
@@ -671,9 +796,25 @@ export function Builder() {
                   </button>
                 </>
               ) : (
-                <span className="piece-tools__hint">
-                  {items.length ? "Tippe ein Teil an, um es zu ersetzen oder zu bearbeiten." : "Ausgewählte Produkte erscheinen auf der Leinwand."}
-                </span>
+                <>
+                  <span className="piece-tools__hint">
+                    {items.length ? "Tippe ein Teil an, um es zu ersetzen oder zu bearbeiten." : "Ausgewählte Produkte erscheinen auf der Leinwand."}
+                  </span>
+                  {/* Phones: canvas actions live here because the toolbar above the canvas is gone. */}
+                  <span className="idle-tools">
+                    <button type="button" className="tool" onClick={() => edit((xs) => autoArrange(xs, lookup))} disabled={!items.length}>
+                      <span className="tool__label">Anordnen</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="tool"
+                      onClick={() => openGuarded({ ...live.current, items: [] }, "eine leere Leinwand")}
+                      disabled={!items.length}
+                    >
+                      <span className="tool__label">Leeren</span>
+                    </button>
+                  </span>
+                </>
               )}
             </div>
 
@@ -689,7 +830,7 @@ export function Builder() {
                 <Icon name="plus" /> Produkte
               </button>
               <button type="button" className={`lookbar ${summary.remaining !== null && summary.remaining < 0 ? "is-over" : ""}`} onClick={() => setLookOpen(true)} aria-haspopup="dialog">
-                <span className="lookbar__value num">{formatCHF(summary.productValue)}</span>
+                <PriceTicker value={summary.productValue} className="lookbar__value" resetKey={loadKey} />
                 <span className="lookbar__state">
                   {summary.remaining === null
                     ? "Budget festlegen"

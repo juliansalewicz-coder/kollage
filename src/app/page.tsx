@@ -21,34 +21,28 @@ export default function HomePage() {
               Stelle deinen Look zusammen.
             </h1>
             <p className="home-hero__sub">Kombiniere Kleidung und Accessoires zu deinem Outfit. Entdecke die passenden Shops.</p>
-            <div className="home-hero__actions">
-              <Link href={`/builder?look=${hero.id}`} className="btn btn--primary btn--lg">
-                Diesen Look anpassen
-              </Link>
-              <Link href="/builder?neu=1" className="btn btn--ghost btn--lg">
-                Leer starten
-              </Link>
-            </div>
-            <nav className="style-chips" aria-label="Nach Stil starten">
-              <span className="style-chips__label">Nach Stil:</span>
-              {entries.map((e) => (
-                <Link key={e.id} href={e.href} className="style-chip">
-                  {e.label}
-                </Link>
-              ))}
-            </nav>
-            {hero.tip && (
-              <p className="home-hero__tip">
-                <span className="home-hero__tip-label">Styling-Tipp zu «{hero.title}»</span>
-                {hero.tip}
-              </p>
-            )}
           </div>
           <FeaturedLook look={hero} />
+          <div className="home-hero__more">
+            <ol className="howto" aria-label="So funktioniert Kollage">
+              <li>
+                <span className="howto__n">1</span> Look übernehmen oder leer beginnen
+              </li>
+              <li>
+                <span className="howto__n">2</span> Teile ersetzen, Budget im Blick
+              </li>
+              <li>
+                <span className="howto__n">3</span> Beim Shop kaufen, Preise in CHF
+              </li>
+            </ol>
+            <Link href="/builder?neu=1" className="link-arrow home-hero__blank">
+              Mit leerer Leinwand starten <Icon name="chevronRight" size={16} />
+            </Link>
+          </div>
         </div>
       </section>
 
-      <section className="section section--tight" aria-labelledby="styles-title">
+      <section className="section section--related" aria-labelledby="styles-title">
         <div className="wrap">
           <div className="section__head">
             <h2 id="styles-title" className="headline">

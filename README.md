@@ -33,7 +33,9 @@ node scripts/e2e.mjs   # End-to-End-Smoke-Test gegen den laufenden Dev-Server (b
 - **Gestaltung:** Wortmarke, Tinte + Mohnrot, Look-Namen in Serifenschrift, Startseite mit Outfit und Aktionen im ersten Blick, Stil-Einstiege (Alltag, Büro, Wochenende, unter CHF 500), Redaktions-Looks mit Styling-Tipps.
 - **Features:** Teil ersetzen (gleiche Art zuerst, dann Preis; ein Undo-Schritt), Favoriten für Produkte und Looks (Seite «Gemerkt»), persönliches Budget (Produktwert, Rest/Überschreitung, Versand getrennt, Duplikate zählen einmal), aktive Filter als Chips, kompakte Handy-Bedienung.
 
-Tests: `npm test` (27 Unit-Tests), `node scripts/e2e.mjs` (14 Browser-Szenarien inkl. Abnahme Paket 1–3 auf Desktop und Handy).
+- **Review-Runden:** Startseite mit komponiertem Outfit und Aktion direkt darunter (Teile zeigen Name und Preis bei Zeigen/Fokus, keine Nummern im Ruhezustand), ehrliche Speicherzustände («Entwurf in diesem Browser gesichert», «Anmelden & speichern»), kompakter Handy-Builder mit Speichern-Sheet und Dock, kurze Bewegung beim Hinzufügen, Ersetzen und bei Preisänderungen. Gestaltungsregeln: [DESIGN.md](DESIGN.md).
+
+Tests: `npm test` (29 Unit-Tests), `node scripts/e2e.mjs` (22 Browser-Szenarien inkl. 1440, 390 und 360 px; einzelne Gruppen mit `ONLY=r2`).
 Produktions-Build neben laufendem Dev-Server: `NEXT_DIST_DIR=.next-build npx next build`.
 
 ## Builder-Funktionen

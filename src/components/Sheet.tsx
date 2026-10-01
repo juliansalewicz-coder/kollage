@@ -14,6 +14,7 @@ export function Sheet({
   children,
   className = "",
   closeLabel = "Schliessen",
+  initialFocus,
 }: {
   open: boolean;
   onClose: () => void;
@@ -21,6 +22,8 @@ export function Sheet({
   children: ReactNode;
   className?: string;
   closeLabel?: string;
+  /** CSS selector of the element that gets focus when the sheet opens (default: the dialog's first control). */
+  initialFocus?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLElement | null>(null);
@@ -32,9 +35,11 @@ export function Sheet({
     if (open && !dlg.open) {
       opener.current = document.activeElement as HTMLElement | null;
       dlg.showModal();
+      if (initialFocus) dlg.querySelector<HTMLElement>(initialFocus)?.focus();
     } else if (!open && dlg.open) {
       dlg.close();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   useEffect(() => {
