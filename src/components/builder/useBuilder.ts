@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Backdrop, CanvasItem, Draft, Occasion } from "@/lib/types";
-import { getDraft, setDraft } from "@/lib/store";
+import { getDraft, probeStorage, setDraft } from "@/lib/store";
 
 export interface Snapshot {
   items: CanvasItem[];
@@ -48,15 +48,33 @@ export function useBuilder() {
   live.current = h.present;
 
   useEffect(() => {
+    probeStorage();
     setH({ past: [], present: fromDraft(getDraft()), future: [] });
     setReady(true);
   }, []);
 
+  /* Autosave, debounced. `dirty` makes sure the last change is written when the page is left early. */
+  const dirty = useRef(false);
+  const flush = useCallback(() => {
+    if (!dirty.current) return;
+    dirty.current = false;
+    setDraft({ ...live.current, updatedAt: new Date().toISOString() });
+  }, []);
+
   useEffect(() => {
     if (!ready) return;
-    const t = window.setTimeout(() => setDraft({ ...h.present, updatedAt: new Date().toISOString() }), 250);
+    dirty.current = true;
+    const t = window.setTimeout(flush, 250);
     return () => window.clearTimeout(t);
-  }, [h.present, ready]);
+  }, [h.present, ready, flush]);
+
+  useEffect(() => {
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+  }, [flush]);
 
   /** Commit a change as one history step. */
   const commit = useCallback((next: (s: Snapshot) => Snapshot) => {

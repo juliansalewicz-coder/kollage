@@ -25,9 +25,21 @@ import { formatCHF, pieces } from "@/lib/format";
 import { distinctCount, lookTotal, offerHref, pieceRows, shippingText } from "@/lib/look";
 import { BACKDROPS, getSeedLook, lookup, OCCASIONS } from "@/lib/seed-looks";
 import { decodeLook } from "@/lib/share";
-import { getLooks, getSession, newLookId, upsertLook, useSession } from "@/lib/store";
+import { draftNeedsGuard } from "@/lib/draft-guard";
+import {
+  archiveDraft,
+  getArchivedDrafts,
+  getLooks,
+  getSession,
+  newLookId,
+  removeArchivedDraft,
+  upsertLook,
+  useSession,
+  useStorageStatus,
+} from "@/lib/store";
 import type { Look, LookStatus, Occasion } from "@/lib/types";
 import { ProductImage } from "../GarmentArt";
+import { Sheet } from "../Sheet";
 import { Icon } from "../Icon";
 import { BuilderCanvas } from "./BuilderCanvas";
 import { Gallery } from "./Gallery";
@@ -46,6 +58,32 @@ export function Builder() {
   const [announce, setAnnounce] = useState("");
   const titleRef = useRef<HTMLInputElement>(null);
   const applied = useRef("");
+  const storageStatus = useStorageStatus();
+  /** Something the user asked to open while the current draft has unsaved work. */
+  const [pending, setPending] = useState<{ next: Snapshot; label: string; archiveId?: string } | null>(null);
+
+  function apply(next: Snapshot, archiveId?: string) {
+    commit(() => next);
+    setSelected(null);
+    if (archiveId) removeArchivedDraft(archiveId);
+  }
+
+  /** Opens `next`, or asks first when that would replace unsaved work. */
+  function openGuarded(next: Snapshot, label: string, archiveId?: string) {
+    if (draftNeedsGuard(live.current, getLooks())) setPending({ next, label, archiveId });
+    else apply(next, archiveId);
+  }
+
+  function resolvePending(choice: "keep" | "archive" | "replace") {
+    const p = pending;
+    setPending(null);
+    if (!p || choice === "keep") return;
+    if (choice === "archive") {
+      const { persisted } = archiveDraft({ ...live.current, updatedAt: new Date().toISOString() });
+      toast(persisted ? "Bisheriger Entwurf gesichert. Du findest ihn unter «Meine Looks»." : "Entwurf nur für diese Sitzung gesichert: Browserspeicher blockiert.");
+    }
+    apply(p.next, p.archiveId);
+  }
 
   /* Open a look from ?look= (remix), ?edit= (own look) or ?d= (shared link). */
   useEffect(() => {
@@ -54,17 +92,30 @@ export function Builder() {
     const editParam = params.get("edit");
     const data = params.get("d");
     const fresh = params.get("neu");
+    const archived = params.get("entwurf");
     const key = params.toString();
-    if (!lookParam && !editParam && !data && !fresh) {
+    if (!lookParam && !editParam && !data && !fresh && !archived) {
       applied.current = "";
       return;
     }
     if (applied.current === key) return;
     applied.current = key;
     let next: Snapshot | null = null;
+    let label = "";
+    let archiveId: string | undefined;
     if (editParam) {
       const own = getLooks().find((l) => l.id === editParam);
-      if (own) next = { items: own.items, title: own.title, note: own.note, occasion: own.occasion, backdrop: own.backdrop, lookId: own.id, basedOn: own.basedOn };
+      if (own && live.current.lookId !== own.id) {
+        next = { items: own.items, title: own.title, note: own.note, occasion: own.occasion, backdrop: own.backdrop, lookId: own.id, basedOn: own.basedOn };
+        label = `deinen Look «${own.title}»`;
+      }
+    } else if (archived) {
+      const entry = getArchivedDrafts().find((d) => d.archiveId === archived);
+      if (entry) {
+        next = { items: entry.items, title: entry.title, note: entry.note, occasion: entry.occasion, backdrop: entry.backdrop, lookId: entry.lookId, basedOn: entry.basedOn };
+        label = `den gesicherten Entwurf «${entry.title || "Ohne Titel"}»`;
+        archiveId = entry.archiveId;
+      }
     } else if (lookParam) {
       const src = getSeedLook(lookParam) ?? getLooks().find((l) => l.id === lookParam);
       if (src)
@@ -77,19 +128,19 @@ export function Builder() {
           lookId: null,
           basedOn: src.id,
         };
+      if (src) label = `den Look «${src.title}»`;
     } else if (data) {
       const shared = decodeLook(data, (id) => Boolean(getProduct(id)));
       if (shared) next = { ...shared, items: shared.items.map((it) => ({ ...it, uid: newUid() })), note: "", lookId: null, basedOn: null };
+      label = "den geteilten Look";
     }
-    if (fresh) next = EMPTY;
-    if (next) {
-      const hadWork = live.current.items.length > 0;
-      const snap = next;
-      commit(() => snap);
-      setSelected(null);
-      if (hadWork) toast("Dein vorheriger Entwurf wurde ersetzt. «Rückgängig» holt ihn zurück.");
+    if (fresh) {
+      next = EMPTY;
+      label = "einen neuen, leeren Look";
     }
+    if (next) openGuarded(next, label, archiveId);
     router.replace("/builder", { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, params, commit, live, router]);
 
   /* Undo / redo shortcuts outside text fields. */
@@ -149,7 +200,7 @@ export function Builder() {
 
   const edit = (fn: (xs: typeof items) => typeof items) => commit((s) => ({ ...s, items: fn(s.items) }));
 
-  function persist(status?: LookStatus): Look {
+  function persist(status?: LookStatus): { look: Look; persisted: boolean } {
     const user = getSession()!;
     const s = live.current;
     const now = new Date().toISOString();
@@ -170,9 +221,9 @@ export function Builder() {
       basedOn: s.basedOn,
       isExample: false,
     };
-    upsertLook(look);
+    const persisted = upsertLook(look);
     preview((cur) => ({ ...cur, lookId: look.id, title }));
-    return look;
+    return { look, persisted };
   }
 
   function save() {
@@ -183,8 +234,9 @@ export function Builder() {
     }
     setFormError(null);
     requireLogin("Melde dich an, um deinen Look in «Meine Looks» zu speichern.", () => {
-      const look = persist();
-      toast(look.status === "veroeffentlicht" ? "Änderungen veröffentlicht" : "Gespeichert in «Meine Looks»");
+      const { look, persisted } = persist();
+      const what = look.status === "veroeffentlicht" ? "Änderungen veröffentlicht" : "Gespeichert in «Meine Looks»";
+      toast(persisted ? what : `${what}, aber nur für diese Sitzung: Browserspeicher blockiert`);
     });
   }
 
@@ -204,7 +256,11 @@ export function Builder() {
     }
     if (problems.length) return;
     requireLogin("Melde dich an, um deinen Look zu veröffentlichen.", () => {
-      const look = persist("veroeffentlicht");
+      const { look, persisted } = persist("veroeffentlicht");
+      if (!persisted) {
+        toast("Veröffentlicht, aber nur für diese Sitzung: Browserspeicher blockiert");
+        return;
+      }
       toast("Veröffentlicht");
       router.push(`/look/${look.id}`);
     });
@@ -249,9 +305,13 @@ export function Builder() {
           )}
         </div>
         <div className="builder__status">
-          <span className="builder__saved">
-            {editingOwn ? "Bearbeitest einen gespeicherten Look" : "Entwurf, automatisch in diesem Browser gesichert"}
-          </span>
+          {storageStatus === "sitzung" ? (
+            <span className="builder__saved is-warning" role="status">
+              <Icon name="lock" size={16} /> Nicht dauerhaft gesichert: Browserspeicher blockiert. Änderungen gehen beim Schliessen verloren.
+            </span>
+          ) : (
+            <span className="builder__saved">{editingOwn ? "Gespeicherter Look, Entwurf wird laufend gesichert" : "Entwurf, automatisch in diesem Browser gesichert"}</span>
+          )}
         </div>
         <div className="builder__actions">
           <button type="button" className="btn btn--ghost" onClick={save}>
@@ -271,6 +331,24 @@ export function Builder() {
       <p className="sr-only" aria-live="polite">
         {announce}
       </p>
+
+      <Sheet open={Boolean(pending)} onClose={() => resolvePending("keep")} title="Ungesicherten Entwurf behalten?" closeLabel="Am Entwurf weiterarbeiten">
+        <p className="sheet__text">
+          Auf deiner Leinwand liegt ein Entwurf mit {distinctCount(state.items) === 1 ? "einem Teil" : `${distinctCount(state.items)} Teilen`}, der nicht gespeichert ist. Du willst {pending?.label} öffnen.
+        </p>
+        <div className="sheet__choices">
+          <button type="button" className="btn btn--primary" onClick={() => resolvePending("archive")}>
+            Entwurf sichern und öffnen
+          </button>
+          <button type="button" className="btn btn--ghost" onClick={() => resolvePending("keep")}>
+            Am Entwurf weiterarbeiten
+          </button>
+          <button type="button" className="btn btn--ghost btn--quiet-danger" onClick={() => resolvePending("replace")}>
+            Entwurf verwerfen und öffnen
+          </button>
+        </div>
+        <p className="fineprint">Gesicherte Entwürfe findest du unter «Meine Looks», auch ohne Anmeldung.</p>
+      </Sheet>
 
 
       <div className="builder__body">
@@ -300,11 +378,7 @@ export function Builder() {
             <button
               type="button"
               className="tool"
-              onClick={() => {
-                edit(() => []);
-                setSelected(null);
-                toast("Leinwand geleert. «Rückgängig» holt die Teile zurück.");
-              }}
+              onClick={() => openGuarded({ ...live.current, items: [] }, "eine leere Leinwand")}
               disabled={!items.length}
             >
               <Icon name="trash" /> <span className="tool__label">Leeren</span>

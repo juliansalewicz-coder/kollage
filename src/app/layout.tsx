@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { AuthDialog } from "@/components/AuthDialog";
-import { SiteFooter, SiteHeader, Toaster } from "@/components/SiteChrome";
+import { SiteFooter, SiteHeader, StorageNotice, Toaster } from "@/components/SiteChrome";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -22,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Zum Inhalt springen
         </a>
         <SiteHeader />
+        <StorageNotice />
         <main id="inhalt" tabIndex={-1}>
           {children}
         </main>

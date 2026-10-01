@@ -24,6 +24,13 @@ const PATHS = {
   arrowRight: "M4 10h12M11 5l5 5-5 5",
   chevronDown: "M5 8l5 5 5-5",
   chevronRight: "M8 5l5 5-5 5",
+  heart: "M10 16.5s-6.5-3.9-6.5-8.4A3.6 3.6 0 0 1 10 6a3.6 3.6 0 0 1 6.5 2.1c0 4.5-6.5 8.4-6.5 8.4Z",
+  heartFilled: "M10 16.5s-6.5-3.9-6.5-8.4A3.6 3.6 0 0 1 10 6a3.6 3.6 0 0 1 6.5 2.1c0 4.5-6.5 8.4-6.5 8.4Z",
+  swap: "M4 7h11M12 4l3 3-3 3M16 13H5M8 10l-3 3 3 3",
+  more: "M5 10h.01M10 10h.01M15 10h.01",
+  wallet: "M3 6.5h12.5a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 15V5.5A1.5 1.5 0 0 1 4.5 4H14M13.5 11.5h.01",
+  filter: "M3 5h14M6 10h8M8.5 15h3",
+  sparkle: "M10 3v4M10 13v4M3 10h4M13 10h4",
   sliders: "M4 6h8M15 6h1M4 14h2M9 14h7M12 4v4M7 12v4",
   bag: "M5 7h10l-.8 10H5.8L5 7ZM7.5 7V6a2.5 2.5 0 0 1 5 0v1",
   link: "M8.5 11.5a3.5 3.5 0 0 0 5 0l2.5-2.5a3.5 3.5 0 0 0-5-5L10 5M11.5 8.5a3.5 3.5 0 0 0-5 0L4 11a3.5 3.5 0 0 0 5 5l1-1",
@@ -51,7 +58,7 @@ export function Icon({ name, size = 20, ...rest }: { name: IconName; size?: numb
       focusable="false"
       {...rest}
     >
-      <path d={PATHS[name]} />
+      <path d={PATHS[name]} fill={name === "heartFilled" ? "currentColor" : undefined} strokeWidth={name === "more" ? 2.6 : undefined} />
     </svg>
   );
 }

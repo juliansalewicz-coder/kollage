@@ -7,7 +7,18 @@ import { LookWindow } from "@/components/LookWindow";
 import { openLogin, toast } from "@/lib/events";
 import { formatCHF, formatDate, pieces } from "@/lib/format";
 import { distinctCount, lookTotal } from "@/lib/look";
-import { deleteLook, newLookId, signOut, upsertLook, useDraft, useHydrated, useLooks, useSession } from "@/lib/store";
+import {
+  deleteLook,
+  newLookId,
+  removeArchivedDraft,
+  signOut,
+  upsertLook,
+  useArchivedDrafts,
+  useDraft,
+  useHydrated,
+  useLooks,
+  useSession,
+} from "@/lib/store";
 import type { Look, LookStatus } from "@/lib/types";
 
 type Filter = "alle" | LookStatus;
@@ -17,6 +28,7 @@ export function MyLooks() {
   const session = useSession();
   const looks = useLooks();
   const draft = useDraft();
+  const archived = useArchivedDrafts();
   const [filter, setFilter] = useState<Filter>("alle");
 
   const mine = session ? looks.filter((l) => l.ownerEmail === session.email) : [];
@@ -63,6 +75,49 @@ export function MyLooks() {
               Weiter bearbeiten
             </Link>
           </div>
+        </section>
+      )}
+
+      {archived.length > 0 && (
+        <section className="archive" aria-labelledby="archive-title">
+          <h2 id="archive-title" className="section__title">
+            Gesicherte Entwürfe
+          </h2>
+          <p className="look-card__meta">Beim Öffnen eines anderen Looks zur Seite gelegt. Sie liegen nur in diesem Browser.</p>
+          <ul className="look-cards">
+            {archived.map((d) => (
+              <li key={d.archiveId}>
+                <article className="look-card">
+                  <div className="look-card__window" aria-hidden="true">
+                    <LookWindow items={d.items} backdrop={d.backdrop} frame="thin" />
+                  </div>
+                  <div className="look-card__body">
+                    <h3 className="look-card__title">{d.title || "Ohne Titel"}</h3>
+                    <p className="look-card__meta">
+                      {pieces(distinctCount(d.items))} · gesichert am {formatDate(d.archivedAt)}
+                    </p>
+                    <div className="look-card__actions">
+                      <Link href={`/builder?entwurf=${d.archiveId}`} className="btn btn--primary btn--sm">
+                        <Icon name="edit" size={16} /> Entwurf öffnen
+                      </Link>
+                      <button
+                        type="button"
+                        className="icon-btn btn--quiet-danger look-card__delete"
+                        aria-label={`Entwurf «${d.title || "Ohne Titel"}» löschen`}
+                        title="Löschen"
+                        onClick={() => {
+                          removeArchivedDraft(d.archiveId);
+                          toast("Entwurf gelöscht");
+                        }}
+                      >
+                        <Icon name="trash" size={18} />
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 

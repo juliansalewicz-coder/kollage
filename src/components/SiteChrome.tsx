@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { openLogin, useToasts } from "@/lib/events";
-import { signOut, useSession } from "@/lib/store";
+import { useEffect } from "react";
+import { probeStorage, signOut, useSession, useStorageStatus } from "@/lib/store";
 import { Icon } from "./Icon";
 
 const NAV = [
@@ -52,6 +53,20 @@ export function SiteHeader() {
         </div>
       </div>
     </header>
+  );
+}
+
+/** Visible whenever the browser blocks storage, so nobody believes their work is saved. */
+export function StorageNotice() {
+  const status = useStorageStatus();
+  useEffect(() => {
+    probeStorage();
+  }, []);
+  if (status !== "sitzung") return null;
+  return (
+    <p className="storage-notice" role="status">
+      <Icon name="lock" size={16} /> Dein Browser blockiert den Speicher. Entwürfe, Looks und Gemerktes bleiben nur, bis du diesen Tab schliesst.
+    </p>
   );
 }
 
