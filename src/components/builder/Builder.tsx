@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { bestOffer, getProduct, getShop, imageAspect } from "@/lib/catalog";
+import { bestSaving, budgetSummary } from "@/lib/budget";
+import { getProduct, imageAspect } from "@/lib/catalog";
 import {
   addItem,
   autoArrange,
@@ -12,62 +13,162 @@ import {
   duplicateItem,
   infoFromProduct,
   layerItem,
-  MAX_W,
-  MIN_W,
   newUid,
   removeItem,
+  replaceItem,
   rotateItem,
   scaleItem,
   updateItem,
 } from "@/lib/collage";
+import { draftNeedsGuard } from "@/lib/draft-guard";
 import { requireLogin, toast } from "@/lib/events";
 import { formatCHF, pieces } from "@/lib/format";
-import { distinctCount, lookTotal, offerHref, pieceRows, shippingText } from "@/lib/look";
+import { distinctCount, pieceRows } from "@/lib/look";
 import { BACKDROPS, getSeedLook, lookup, OCCASIONS } from "@/lib/seed-looks";
 import { decodeLook } from "@/lib/share";
-import { getLooks, getSession, newLookId, upsertLook, useSession } from "@/lib/store";
+import {
+  archiveDraft,
+  getArchivedDrafts,
+  getLooks,
+  getSession,
+  newLookId,
+  removeArchivedDraft,
+  toggleFavorite,
+  upsertLook,
+  useFavorites,
+  useLooks,
+  useSession,
+  useStorageStatus,
+} from "@/lib/store";
 import type { Look, LookStatus, Occasion } from "@/lib/types";
-import { ProductImage } from "../GarmentArt";
 import { Icon } from "../Icon";
-import { BuilderCanvas } from "./BuilderCanvas";
+import { LookWindow } from "../LookWindow";
+import { Sheet } from "../Sheet";
+import { BudgetBox } from "./BudgetBox";
+import { BuilderCanvas, type CanvasFx } from "./BuilderCanvas";
+import { PriceTicker } from "./PriceTicker";
 import { Gallery } from "./Gallery";
+import { PieceInspector } from "./PieceInspector";
+import { ReplaceSheet } from "./ReplaceSheet";
 import { EMPTY, useBuilder, type Snapshot } from "./useBuilder";
+
+const START_LOOKS = ["herbst-in-bern", "erster-arbeitstag", "sonntag-am-see"];
 
 export function Builder() {
   const router = useRouter();
   const params = useSearchParams();
   const session = useSession();
-  const { state, ready, commit, preview, checkpoint, undo, redo, canUndo, canRedo, live } = useBuilder();
+  const favs = useFavorites();
+  const { state, ready, commit, preview, checkpoint, undo, redo, canUndo, canRedo, live, draftSaved } = useBuilder();
+  const looks = useLooks();
   const [selected, setSelected] = useState<string | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const sheetOpener = useRef<HTMLButtonElement>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const drawerOpener = useRef<HTMLButtonElement>(null);
+  const [replaceFor, setReplaceFor] = useState<string | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [lookOpen, setLookOpen] = useState(false);
+  /** Phones: title, saving and publishing live in one sheet instead of a tall bar above the canvas. */
+  const [saveOpen, setSaveOpen] = useState(false);
+  /* Motion feedback. Pieces added while the phone drawer covers the canvas animate when it closes. */
+  const [fx, setFx] = useState<CanvasFx | null>(null);
+  const queuedAdds = useRef<string[]>([]);
+  const drawerOpenRef = useRef(false);
+  useEffect(() => {
+    if (!fx) return;
+    const t = window.setTimeout(() => setFx(null), 700);
+    return () => window.clearTimeout(t);
+  }, [fx]);
+  function arrived(uid: string) {
+    if (drawerOpenRef.current) queuedAdds.current.push(uid);
+    else setFx({ uids: [uid], kind: "add", key: Date.now() });
+  }
   const [titleError, setTitleError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [announce, setAnnounce] = useState("");
   const titleRef = useRef<HTMLInputElement>(null);
   const applied = useRef("");
+  const storageStatus = useStorageStatus();
+  /** Something the user asked to open while the current draft has unsaved work. */
+  const [pending, setPending] = useState<{ next: Snapshot; label: string; archiveId?: string } | null>(null);
 
-  /* Open a look from ?look= (remix), ?edit= (own look) or ?d= (shared link). */
+  /** Changes whenever a whole look is loaded, so price feedback only follows real edits. */
+  const [loadKey, setLoadKey] = useState(0);
+  useEffect(() => {
+    if (ready) setLoadKey((k) => k + 1);
+  }, [ready]);
+
+  function apply(next: Snapshot, archiveId?: string) {
+    setLoadKey((k) => k + 1);
+    // The personal budget belongs to the person, not to the look being opened.
+    commit((cur) => ({ ...next, budget: cur.budget ?? null }));
+    setSelected(null);
+    if (archiveId) removeArchivedDraft(archiveId);
+  }
+
+  /** Opens `next`, or asks first when that would replace unsaved work. */
+  function openGuarded(next: Snapshot, label: string, archiveId?: string) {
+    if (draftNeedsGuard(live.current, getLooks())) setPending({ next, label, archiveId });
+    else apply(next, archiveId);
+  }
+
+  function resolvePending(choice: "keep" | "archive" | "replace") {
+    const p = pending;
+    setPending(null);
+    if (!p || choice === "keep") return;
+    if (choice === "archive") {
+      const { persisted } = archiveDraft({ ...live.current, updatedAt: new Date().toISOString() });
+      toast(persisted ? "Bisheriger Entwurf gesichert. Du findest ihn unter «Meine Looks»." : "Entwurf nur für diese Sitzung gesichert: Browserspeicher blockiert.");
+    }
+    apply(p.next, p.archiveId);
+  }
+
+  /* Open a look from ?look= (remix), ?edit= (own look), ?d= (shared), ?entwurf= (archived), ?neu, ?add. */
   useEffect(() => {
     if (!ready) return;
     const lookParam = params.get("look");
     const editParam = params.get("edit");
     const data = params.get("d");
     const fresh = params.get("neu");
+    const archived = params.get("entwurf");
+    const addParam = params.get("add");
     const key = params.toString();
-    if (!lookParam && !editParam && !data && !fresh) {
+    if (!lookParam && !editParam && !data && !fresh && !archived && !addParam) {
       applied.current = "";
       return;
     }
     if (applied.current === key) return;
     applied.current = key;
+    if (addParam) {
+      // From «Gemerkt»: add to whatever is on the canvas, nothing gets replaced.
+      const p = getProduct(addParam);
+      if (p) {
+        const uid = newUid();
+        commit((s) => ({ ...s, items: addItem(s.items, p.id, lookup, uid) }));
+        setSelected(uid);
+        toast(`${p.title} liegt jetzt auf deiner Leinwand`);
+      }
+      router.replace("/builder", { scroll: false });
+      return;
+    }
     let next: Snapshot | null = null;
+    let label = "";
+    let archiveId: string | undefined;
     if (editParam) {
       const own = getLooks().find((l) => l.id === editParam);
-      if (own) next = { items: own.items, title: own.title, note: own.note, occasion: own.occasion, backdrop: own.backdrop, lookId: own.id, basedOn: own.basedOn };
+      if (own && live.current.lookId !== own.id) {
+        next = { items: own.items, title: own.title, note: own.note, occasion: own.occasion, backdrop: own.backdrop, lookId: own.id, basedOn: own.basedOn };
+        label = `deinen Look «${own.title}»`;
+      }
+    } else if (archived) {
+      const entry = getArchivedDrafts().find((d) => d.archiveId === archived);
+      if (entry) {
+        next = { items: entry.items, title: entry.title, note: entry.note, occasion: entry.occasion, backdrop: entry.backdrop, lookId: entry.lookId, basedOn: entry.basedOn };
+        label = `den gesicherten Entwurf «${entry.title || "Ohne Titel"}»`;
+        archiveId = entry.archiveId;
+      }
     } else if (lookParam) {
       const src = getSeedLook(lookParam) ?? getLooks().find((l) => l.id === lookParam);
-      if (src)
+      if (src) {
         next = {
           items: src.items.map((it) => ({ ...it, uid: newUid() })),
           title: `${src.title} (Variante)`,
@@ -77,26 +178,27 @@ export function Builder() {
           lookId: null,
           basedOn: src.id,
         };
+        label = `den Look «${src.title}»`;
+      }
     } else if (data) {
       const shared = decodeLook(data, (id) => Boolean(getProduct(id)));
       if (shared) next = { ...shared, items: shared.items.map((it) => ({ ...it, uid: newUid() })), note: "", lookId: null, basedOn: null };
+      label = "den geteilten Look";
     }
-    if (fresh) next = EMPTY;
-    if (next) {
-      const hadWork = live.current.items.length > 0;
-      const snap = next;
-      commit(() => snap);
-      setSelected(null);
-      if (hadWork) toast("Dein vorheriger Entwurf wurde ersetzt. «Rückgängig» holt ihn zurück.");
+    if (fresh) {
+      next = EMPTY;
+      label = "einen neuen, leeren Look";
     }
+    if (next) openGuarded(next, label, archiveId);
     router.replace("/builder", { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, params, commit, live, router]);
 
   /* Undo / redo shortcuts outside text fields. */
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const el = e.target as HTMLElement;
-      if (el.closest("input, textarea, select")) return;
+      if (el.closest("input, textarea, select, dialog")) return;
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
@@ -120,16 +222,26 @@ export function Builder() {
     return m;
   }, [items]);
   const rows = pieceRows(items);
+  const budget = state.budget ?? null;
+  const summary = useMemo(() => budgetSummary(items, budget), [items, budget]);
+  const replaceItemNow = replaceFor ? items.find((i) => i.uid === replaceFor) ?? null : null;
 
-  function closeSheet() {
-    setSheetOpen(false);
-    sheetOpener.current?.focus();
+  drawerOpenRef.current = drawerOpen;
+
+  function closeDrawer() {
+    setDrawerOpen(false);
+    drawerOpener.current?.focus();
+    if (queuedAdds.current.length) {
+      setFx({ uids: queuedAdds.current, kind: "add", key: Date.now() });
+      queuedAdds.current = [];
+    }
   }
 
   function add(productId: string) {
     const uid = newUid();
     commit((s) => ({ ...s, items: addItem(s.items, productId, lookup, uid) }));
     setSelected(uid);
+    arrived(uid);
     setFormError(null);
     const p = getProduct(productId);
     if (p) setAnnounce(`${p.title} liegt auf der Leinwand. ${pieces(items.length + 1)} insgesamt.`);
@@ -145,11 +257,26 @@ export function Builder() {
       items: [...s.items, clampItem({ uid, productId, x, y, w: defaultWidth(info), rotation: 0, z: s.items.reduce((m, i) => Math.max(m, i.z), 0) + 1 })],
     }));
     setSelected(uid);
+    arrived(uid);
   }
 
   const edit = (fn: (xs: typeof items) => typeof items) => commit((s) => ({ ...s, items: fn(s.items) }));
 
-  function persist(status?: LookStatus): Look {
+  function replaceWith(productId: string) {
+    const uid = replaceFor;
+    if (!uid) return;
+    const before = live.current.items.find((i) => i.uid === uid);
+    const oldP = before ? getProduct(before.productId) : undefined;
+    const newP = getProduct(productId);
+    edit((xs) => replaceItem(xs, uid, productId, lookup));
+    if (before) setFx({ uids: [uid], kind: "swap", from: before.productId, key: Date.now() });
+    setReplaceFor(null);
+    setMoreOpen(false);
+    setSelected(uid);
+    if (oldP && newP) toast(`${oldP.title} ersetzt durch ${newP.title}. «Rückgängig» stellt es wieder her.`);
+  }
+
+  function persist(status?: LookStatus): { look: Look; persisted: boolean } {
     const user = getSession()!;
     const s = live.current;
     const now = new Date().toISOString();
@@ -170,9 +297,9 @@ export function Builder() {
       basedOn: s.basedOn,
       isExample: false,
     };
-    upsertLook(look);
+    const persisted = upsertLook(look);
     preview((cur) => ({ ...cur, lookId: look.id, title }));
-    return look;
+    return { look, persisted };
   }
 
   function save() {
@@ -183,8 +310,10 @@ export function Builder() {
     }
     setFormError(null);
     requireLogin("Melde dich an, um deinen Look in «Meine Looks» zu speichern.", () => {
-      const look = persist();
-      toast(look.status === "veroeffentlicht" ? "Änderungen veröffentlicht" : "Gespeichert in «Meine Looks»");
+      setSaveOpen(false);
+      const { look, persisted } = persist();
+      const what = look.status === "veroeffentlicht" ? "Änderungen veröffentlicht" : "Gespeichert in «Meine Looks»";
+      toast(persisted ? what : `${what}, aber nur für diese Sitzung: Browserspeicher blockiert`);
     });
   }
 
@@ -199,67 +328,279 @@ export function Builder() {
       problems.push("items");
     } else setFormError(null);
     if (problems[0] === "title") {
-      titleRef.current?.focus();
+      // On phones the title field lives in the save sheet.
+      if (window.matchMedia("(max-width: 1023px)").matches) {
+        if (saveOpen) document.getElementById("sheet-look-title")?.focus();
+        else setSaveOpen(true);
+      } else titleRef.current?.focus();
       return;
     }
     if (problems.length) return;
     requireLogin("Melde dich an, um deinen Look zu veröffentlichen.", () => {
-      const look = persist("veroeffentlicht");
+      const { look, persisted } = persist("veroeffentlicht");
+      if (!persisted) {
+        toast("Veröffentlicht, aber nur für diese Sitzung: Browserspeicher blockiert");
+        return;
+      }
       toast("Veröffentlicht");
       router.push(`/look/${look.id}`);
     });
   }
 
-  const editingOwn = Boolean(state.lookId && session && getLooks().some((l) => l.id === state.lookId && l.ownerEmail === session.email));
+  const ownLook = state.lookId && session ? getLooks().find((l) => l.id === state.lookId && l.ownerEmail === session.email) : undefined;
+  const isPublished = ownLook?.status === "veroeffentlicht";
 
-  const emptyState = (
-    <div className="canvas-empty">
-      <p className="canvas-empty__title">Deine Leinwand ist leer</p>
-      <p>Wähle Produkte aus oder ziehe sie hierher.</p>
-      <Link href="/builder?look=sonntag-am-see" className="btn btn--ghost btn--sm">
-        Mit einem Beispiel-Look starten
-      </Link>
+  /* What is saved where. Only claims "gesichert" after a write that really succeeded. */
+  const unsaved = draftNeedsGuard(state, looks);
+  const blocked = storageStatus === "sitzung" || draftSaved === false;
+  const status: { tone: "ok" | "warn" | "muted"; text: string; detail: string } = blocked
+    ? { tone: "warn", text: "Nicht gesichert: Browserspeicher blockiert", detail: "Änderungen gehen beim Schliessen des Tabs verloren." }
+    : !items.length
+      ? { tone: "muted", text: "Leere Leinwand", detail: "Sobald ein Teil darauf liegt, wird dein Entwurf in diesem Browser gesichert." }
+      : ownLook && !unsaved
+        ? { tone: "ok", text: isPublished ? "Veröffentlicht, alles gespeichert" : "Gespeichert in «Meine Looks»", detail: "" }
+        : draftSaved
+          ? {
+              tone: "ok",
+              text: "Entwurf in diesem Browser gesichert",
+              detail: isPublished ? "Änderungen sind noch nicht veröffentlicht." : "Noch nicht in «Meine Looks» gespeichert.",
+            }
+          : { tone: "muted", text: "Entwurf wird gesichert …", detail: "" };
+  const saveLabel = !session ? "Anmelden & speichern" : isPublished ? "Änderungen veröffentlichen" : "Speichern";
+  const publishLabel = !session ? "Anmelden & veröffentlichen" : "Veröffentlichen";
+  const saveHint = isPublished ? "Aktualisiert die Look-Seite und den Eintrag unter «Entdecken»." : "Legt den Look unter «Meine Looks» ab.";
+  const publishHint = "Zeigt den Look mit eigener Seite unter «Entdecken».";
+  const demoHint = "Demo-Anmeldung: kein echtes Konto. Alles bleibt in diesem Browser und wird nicht zwischen Geräten abgeglichen.";
+  /** One line under the desktop status: what the two buttons add to the automatic draft. */
+  const explain = `Speichern legt den Look in «Meine Looks», Veröffentlichen zeigt ihn unter «Entdecken». ${session ? "Nur in diesem Browser." : "Demo-Anmeldung, nur in diesem Browser."}`;
+
+  const short: Record<string, string> = {
+    "Entwurf in diesem Browser gesichert": "Entwurf gesichert",
+    "Nicht gesichert: Browserspeicher blockiert": "Nicht gesichert",
+    "Gespeichert in «Meine Looks»": "In «Meine Looks»",
+    "Veröffentlicht, alles gespeichert": "Veröffentlicht",
+  };
+  const statusLine = (compact = false) => (
+    <span className={`save-status is-${status.tone}`} role="status">
+      <Icon name={status.tone === "warn" ? "lock" : status.tone === "ok" ? "check" : "edit"} size={16} />
+      <span>{compact ? (short[status.text] ?? status.text) : status.text}</span>
+    </span>
+  );
+
+  const titleField = (id: string, ref?: React.Ref<HTMLInputElement>) => (
+    <div className="field builder__title">
+      <label htmlFor={id}>Titel des Looks</label>
+      <input
+        ref={ref}
+        id={id}
+        value={state.title}
+        maxLength={80}
+        placeholder="z. B. Herbst in der Altstadt"
+        onFocus={checkpoint}
+        onChange={(e) => {
+          const v = e.target.value;
+          preview((s) => ({ ...s, title: v }));
+          if (titleError && v.trim()) setTitleError(null);
+        }}
+        aria-invalid={titleError ? true : undefined}
+        aria-describedby={titleError ? `${id}-err` : undefined}
+      />
+      {titleError && (
+        <p id={`${id}-err`} className="field__error" role="alert">
+          {titleError}
+        </p>
+      )}
     </div>
   );
 
-  return (
-    <div className="builder" data-sheet={sheetOpen ? "open" : "closed"}>
-      <div className="builder__bar">
-        <div className="field builder__title">
-          <label htmlFor="look-title">Titel des Looks</label>
-          <input
-            ref={titleRef}
-            id="look-title"
-            value={state.title}
-            maxLength={80}
-            placeholder="z. B. Herbst in der Altstadt"
+  const emptyState = (
+    <div className="canvas-empty">
+      <p className="canvas-empty__title">Womit fängst du an?</p>
+      <p>Übernimm einen Look und tausche Teile aus, oder wähle Produkte und ziehe sie hierher.</p>
+      <div className="canvas-start">
+        <ul className="canvas-start__list">
+          {START_LOOKS.map((id) => {
+            const l = getSeedLook(id)!;
+            return (
+              <li key={id}>
+                <Link href={`/builder?look=${id}`} className="canvas-start__item">
+                  <LookWindow items={l.items} backdrop={l.backdrop} frame="thin" />
+                  {l.title}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>
+  );
+
+  const inspector = (prefix: string) =>
+    selItem && selProduct ? (
+      <PieceInspector
+        item={selItem}
+        product={selProduct}
+        idPrefix={prefix}
+        onReplace={() => setReplaceFor(selItem.uid)}
+        onStart={checkpoint}
+        onScale={(w) => preview((s) => ({ ...s, items: updateItem(s.items, selItem.uid, { w }) }))}
+        onRotate={(rotation) => preview((s) => ({ ...s, items: updateItem(s.items, selItem.uid, { rotation }) }))}
+        onLayer={(move) => edit((xs) => layerItem(xs, selItem.uid, move))}
+        onDuplicate={() => {
+          const id = newUid();
+          edit((xs) => duplicateItem(xs, selItem.uid, id));
+          setSelected(id);
+        }}
+      />
+    ) : null;
+
+  const saving = summary.remaining !== null && summary.remaining < 0 ? bestSaving(items) : null;
+
+  const budgetPanel = (prefix: string) => (
+    <section className="side-block" aria-labelledby={`${prefix}-budget-title`}>
+      <h2 id={`${prefix}-budget-title`} className="panel__title">
+        Budget
+      </h2>
+      <BudgetBox
+        summary={summary}
+        loadKey={loadKey}
+        idPrefix={prefix}
+        onBudget={(value) => preview((s) => ({ ...s, budget: value }))}
+        onCheaper={
+          saving
+            ? {
+                title: saving.product.title,
+                saving: saving.saving,
+                run: () => {
+                  setSelected(saving.item.uid);
+                  setLookOpen(false);
+                  setReplaceFor(saving.item.uid);
+                },
+              }
+            : null
+        }
+      />
+    </section>
+  );
+
+  // Budget stays first so selecting a piece never pushes it out of view.
+  const lookDetails = (prefix: string) => (
+    <details className="side-block details" open={prefix === "side"}>
+      <summary className="panel__title details__summary">
+        Look-Details <Icon name="chevronDown" size={16} />
+      </summary>
+      <div className="details__body">
+        <div className="field">
+          <label htmlFor={`${prefix}-occasion`}>Anlass</label>
+          <select
+            id={`${prefix}-occasion`}
+            value={state.occasion}
+            onChange={(e) => {
+              const occasion = e.target.value as Occasion;
+              commit((s) => ({ ...s, occasion }));
+            }}
+          >
+            {OCCASIONS.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor={`${prefix}-note`}>Notiz zum Look (optional)</label>
+          <textarea
+            id={`${prefix}-note`}
+            rows={3}
+            maxLength={280}
+            value={state.note}
+            placeholder="Wofür ist der Look gedacht?"
             onFocus={checkpoint}
             onChange={(e) => {
-              const v = e.target.value;
-              preview((s) => ({ ...s, title: v }));
-              if (titleError && v.trim()) setTitleError(null);
+              const note = e.target.value;
+              preview((s) => ({ ...s, note }));
             }}
-            aria-invalid={titleError ? true : undefined}
-            aria-describedby={titleError ? "look-title-err" : undefined}
           />
-          {titleError && (
-            <p id="look-title-err" className="field__error" role="alert">
-              {titleError}
-            </p>
-          )}
         </div>
-        <div className="builder__status">
-          <span className="builder__saved">
-            {editingOwn ? "Bearbeitest einen gespeicherten Look" : "Entwurf, automatisch in diesem Browser gesichert"}
+        <fieldset className="field">
+          <legend>Hintergrund der Leinwand</legend>
+          <div className="backdrops">
+            {BACKDROPS.map((b) => (
+              <label key={b.id} className="backdrop-opt" data-backdrop={b.id}>
+                <input
+                  type="radio"
+                  name={`${prefix}-backdrop`}
+                  value={b.id}
+                  checked={state.backdrop === b.id}
+                  onChange={() => commit((s) => ({ ...s, backdrop: b.id }))}
+                />
+                <span className="backdrop-opt__chip" aria-hidden="true" />
+                <span className="backdrop-opt__label">{b.label}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      </div>
+    </details>
+  );
+
+  const lookPanel = (prefix: string, withBudget = true, withDetails = true) => (
+    <>
+      {withBudget && budgetPanel(prefix)}
+      <section className="side-block" aria-labelledby={`${prefix}-list-title`}>
+        <h2 id={`${prefix}-list-title`} className="panel__title">
+          Im Look <span className="panel__count">{pieces(distinctCount(items))}</span>
+        </h2>
+        {rows.length ? (
+          <ol className="mini-list">
+            {rows.map((r) => (
+              <li key={r.uid}>
+                <button
+                  type="button"
+                  className={`mini-row ${selected === r.uid ? "is-selected" : ""}`}
+                  onClick={() => {
+                    setSelected(r.uid);
+                    setLookOpen(false);
+                  }}
+                  aria-pressed={selected === r.uid}
+                >
+                  <span className="tag-num tag-num--sm">{r.number}</span>
+                  <span className="mini-row__title">{r.product.title}</span>
+                  <span className="num">{formatCHF(r.offer.priceCHF)}</span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="panel__empty">Noch keine Teile ausgewählt.</p>
+        )}
+      </section>
+
+      {withDetails && lookDetails(prefix)}
+    </>
+  );
+
+  const favSelected = selProduct ? favs.products.includes(selProduct.id) : false;
+
+  return (
+    <div className="builder" data-sheet={drawerOpen ? "open" : "closed"}>
+      <div className="builder__bar">
+        {titleField("look-title", titleRef)}
+        <div className="builder__status" id="builder-status">
+          {statusLine()}
+          <span className="save-status__detail" id="builder-explain">
+            {ownLook && status.detail ? status.detail : explain}
           </span>
         </div>
         <div className="builder__actions">
-          <button type="button" className="btn btn--ghost" onClick={save}>
-            Speichern
+          <button type="button" className="btn btn--ghost" onClick={save} aria-describedby="builder-explain">
+            {saveLabel}
           </button>
-          <button type="button" className="btn btn--primary" onClick={publish}>
-            Veröffentlichen
-          </button>
+          {!isPublished && (
+            <button type="button" className="btn btn--primary" onClick={publish} aria-describedby="builder-explain">
+              {publishLabel}
+            </button>
+          )}
         </div>
         {formError && (
           <p className="builder__error" role="alert">
@@ -268,22 +609,101 @@ export function Builder() {
         )}
       </div>
 
+      {/* Phones: one compact row. Title, saving and publishing open in a sheet. */}
+      <div className="mbar">
+        <button type="button" className="mbar__look" onClick={() => setSaveOpen(true)} aria-haspopup="dialog" aria-label={`Look «${state.title.trim() || "ohne Titel"}»: Titel, Speichern und Veröffentlichen. ${status.text}`}>
+          <span className="mbar__title">
+            {state.title.trim() || "Look ohne Titel"} <Icon name="edit" size={14} />
+          </span>
+          {statusLine(true)}
+        </button>
+        <button type="button" className="tool tool--icon" onClick={undo} disabled={!canUndo} aria-label="Rückgängig">
+          <Icon name="undo" />
+        </button>
+        <button type="button" className="tool tool--icon" onClick={redo} disabled={!canRedo} aria-label="Wiederholen">
+          <Icon name="redo" />
+        </button>
+        <button type="button" className="btn btn--primary btn--sm mbar__save" onClick={() => setSaveOpen(true)} aria-haspopup="dialog">
+          Speichern
+        </button>
+      </div>
+      {formError && (
+        <p className="builder__error builder__error--m" role="alert">
+          {formError}
+        </p>
+      )}
+
+      <Sheet open={saveOpen} onClose={() => setSaveOpen(false)} title="Look speichern" className="sheet--compact sheet--save" initialFocus={titleError ? "#sheet-look-title" : undefined}>
+        {titleField("sheet-look-title")}
+        <div className="save-box">
+          {statusLine()}
+          {status.detail && <span className="save-status__detail">{status.detail}</span>}
+        </div>
+        <div className="save-actions">
+          <button type="button" className="save-action" onClick={save}>
+            <span className="save-action__label">{saveLabel}</span>
+            <span className="save-action__hint">{saveHint}</span>
+          </button>
+          {!isPublished && (
+            <button type="button" className="save-action save-action--primary" onClick={publish}>
+              <span className="save-action__label">{publishLabel}</span>
+              <span className="save-action__hint">{publishHint}</span>
+            </button>
+          )}
+        </div>
+        <p className="fineprint">{session ? "Alles bleibt in diesem Browser." : demoHint}</p>
+        {lookDetails("sheet")}
+      </Sheet>
+
       <p className="sr-only" aria-live="polite">
         {announce}
       </p>
 
+      <Sheet open={Boolean(pending)} onClose={() => resolvePending("keep")} title="Ungesicherten Entwurf behalten?" closeLabel="Am Entwurf weiterarbeiten">
+        <p className="sheet__text">
+          Auf deiner Leinwand liegt ein Entwurf mit {distinctCount(state.items) === 1 ? "einem Teil" : `${distinctCount(state.items)} Teilen`}, der nicht gespeichert
+          ist. Du willst {pending?.label} öffnen.
+        </p>
+        <div className="sheet__choices">
+          <button type="button" className="btn btn--primary" onClick={() => resolvePending("archive")}>
+            Entwurf sichern und öffnen
+          </button>
+          <button type="button" className="btn btn--ghost" onClick={() => resolvePending("keep")}>
+            Am Entwurf weiterarbeiten
+          </button>
+          <button type="button" className="btn btn--ghost btn--quiet-danger" onClick={() => resolvePending("replace")}>
+            Entwurf verwerfen und öffnen
+          </button>
+        </div>
+        <p className="fineprint">Gesicherte Entwürfe findest du unter «Meine Looks», auch ohne Anmeldung.</p>
+      </Sheet>
+
+      <ReplaceSheet
+        productId={replaceItemNow?.productId ?? null}
+        open={Boolean(replaceItemNow)}
+        onClose={() => setReplaceFor(null)}
+        onPick={replaceWith}
+      />
+
+      <Sheet open={moreOpen && Boolean(selItem)} onClose={() => setMoreOpen(false)} title="Teil bearbeiten" className="sheet--compact">
+        {inspector("more")}
+      </Sheet>
+
+      <Sheet open={lookOpen} onClose={() => setLookOpen(false)} title="Budget und Teile" className="sheet--compact">
+        {lookPanel("sheet", true, false)}
+      </Sheet>
 
       <div className="builder__body">
-        <div className="sheet-scrim" aria-hidden="true" onClick={closeSheet} />
+        <div className="sheet-scrim" aria-hidden="true" onClick={closeDrawer} />
         <aside
           id="panel-galerie"
           className="builder__gallery panel"
           aria-label="Produkte"
           onKeyDown={(e) => {
-            if (e.key === "Escape" && sheetOpen) closeSheet();
+            if (e.key === "Escape" && drawerOpen) closeDrawer();
           }}
         >
-          <Gallery onAdd={add} counts={counts} onClose={closeSheet} open={sheetOpen} />
+          <Gallery onAdd={add} counts={counts} onClose={closeDrawer} open={drawerOpen} />
         </aside>
 
         <section className="builder__stage" aria-label="Leinwand bearbeiten">
@@ -300,11 +720,7 @@ export function Builder() {
             <button
               type="button"
               className="tool"
-              onClick={() => {
-                edit(() => []);
-                setSelected(null);
-                toast("Leinwand geleert. «Rückgängig» holt die Teile zurück.");
-              }}
+              onClick={() => openGuarded({ ...live.current, items: [] }, "eine leere Leinwand")}
               disabled={!items.length}
             >
               <Icon name="trash" /> <span className="tool__label">Leeren</span>
@@ -321,238 +737,124 @@ export function Builder() {
             commit={commit}
             onDropProduct={dropAt}
             emptyState={emptyState}
+            fx={fx}
           />
 
-          <button
-            ref={sheetOpener}
-            type="button"
-            className="btn btn--primary add-sheet-btn"
-            aria-controls="panel-galerie"
-            aria-expanded={sheetOpen}
-            onClick={() => setSheetOpen(true)}
-          >
-            <Icon name="plus" /> Produkte hinzufügen
-          </button>
+          {/* On phones this dock sticks to the bottom so the tools stay next to the outfit. */}
+          <div className="stage-dock">
+            <div className={`piece-tools ${selItem ? "" : "is-idle"}`} role="toolbar" aria-label="Ausgewähltes Teil">
+              {selItem && selProduct ? (
+                <>
+                  <span className="piece-tools__name">{selProduct.title}</span>
+                  <button type="button" className="tool tool--key" onClick={() => setReplaceFor(selItem.uid)}>
+                    <Icon name="swap" />
+                    <span className="tool__label">Ersetzen</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`tool ${favSelected ? "is-fav" : ""}`}
+                    aria-pressed={favSelected}
+                    onClick={() => {
+                      const res = toggleFavorite("products", selProduct.id);
+                      toast(res.persisted ? (res.active ? "Produkt gemerkt" : "Aus Gemerkt entfernt") : "Gemerkt, aber nur für diese Sitzung: Browserspeicher blockiert");
+                    }}
+                  >
+                    <Icon name={favSelected ? "heartFilled" : "heart"} />
+                    <span className="tool__label">{favSelected ? "Gemerkt" : "Merken"}</span>
+                  </button>
+                  <button type="button" className="tool tool--minor" onClick={() => edit((xs) => scaleItem(xs, selItem.uid, 1 / 1.1))} aria-label="Kleiner">
+                    <Icon name="shrink" />
+                    <span className="tool__label">Kleiner</span>
+                  </button>
+                  <button type="button" className="tool tool--minor" onClick={() => edit((xs) => scaleItem(xs, selItem.uid, 1.1))} aria-label="Grösser">
+                    <Icon name="grow" />
+                    <span className="tool__label">Grösser</span>
+                  </button>
+                  <button type="button" className="tool" onClick={() => edit((xs) => rotateItem(xs, selItem.uid, 10))} aria-label="Drehen">
+                    <Icon name="rotateRight" />
+                    <span className="tool__label">Drehen</span>
+                  </button>
+                  <button type="button" className="tool tool--minor" onClick={() => edit((xs) => layerItem(xs, selItem.uid, "forward"))} aria-label="Eine Ebene nach vorne">
+                    <Icon name="layerUp" />
+                    <span className="tool__label">Nach vorne</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="tool tool--danger"
+                    onClick={() => {
+                      edit((xs) => removeItem(xs, selItem.uid));
+                      setSelected(null);
+                    }}
+                    aria-label="Von der Leinwand entfernen"
+                  >
+                    <Icon name="trash" />
+                    <span className="tool__label">Entfernen</span>
+                  </button>
+                  <button type="button" className="tool tool--more" onClick={() => setMoreOpen(true)} aria-haspopup="dialog">
+                    <Icon name="more" />
+                    <span className="tool__label">Mehr</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="piece-tools__hint">
+                    {items.length ? "Tippe ein Teil an, um es zu ersetzen oder zu bearbeiten." : "Ausgewählte Produkte erscheinen auf der Leinwand."}
+                  </span>
+                  {/* Phones: canvas actions live here because the toolbar above the canvas is gone. */}
+                  <span className="idle-tools">
+                    <button type="button" className="tool" onClick={() => edit((xs) => autoArrange(xs, lookup))} disabled={!items.length}>
+                      <span className="tool__label">Anordnen</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="tool"
+                      onClick={() => openGuarded({ ...live.current, items: [] }, "eine leere Leinwand")}
+                      disabled={!items.length}
+                    >
+                      <span className="tool__label">Leeren</span>
+                    </button>
+                  </span>
+                </>
+              )}
+            </div>
 
-          <div className={`piece-tools ${selItem ? "" : "is-idle"}`} role="toolbar" aria-label="Ausgewähltes Teil">
-            {selItem && selProduct ? (
-              <>
-                <span className="piece-tools__name">{selProduct.title}</span>
-                <button type="button" className="tool" onClick={() => edit((xs) => scaleItem(xs, selItem.uid, 1 / 1.1))} aria-label="Kleiner">
-                  <Icon name="shrink" />
-                  <span className="tool__label">Kleiner</span>
-                </button>
-                <button type="button" className="tool" onClick={() => edit((xs) => scaleItem(xs, selItem.uid, 1.1))} aria-label="Grösser">
-                  <Icon name="grow" />
-                  <span className="tool__label">Grösser</span>
-                </button>
-                <button type="button" className="tool" onClick={() => edit((xs) => rotateItem(xs, selItem.uid, -10))} aria-label="Nach links drehen">
-                  <Icon name="rotateLeft" />
-                  <span className="tool__label">Links</span>
-                </button>
-                <button type="button" className="tool" onClick={() => edit((xs) => rotateItem(xs, selItem.uid, 10))} aria-label="Nach rechts drehen">
-                  <Icon name="rotateRight" />
-                  <span className="tool__label">Rechts</span>
-                </button>
-                <button type="button" className="tool" onClick={() => edit((xs) => layerItem(xs, selItem.uid, "forward"))} aria-label="Eine Ebene nach vorne">
-                  <Icon name="layerUp" />
-                  <span className="tool__label">Vor</span>
-                </button>
-                <button type="button" className="tool" onClick={() => edit((xs) => layerItem(xs, selItem.uid, "backward"))} aria-label="Eine Ebene nach hinten">
-                  <Icon name="layerDown" />
-                  <span className="tool__label">Zurück</span>
-                </button>
-                <button
-                  type="button"
-                  className="tool"
-                  onClick={() => {
-                    const id = newUid();
-                    edit((xs) => duplicateItem(xs, selItem.uid, id));
-                    setSelected(id);
-                  }}
-                  aria-label="Duplizieren"
-                >
-                  <Icon name="copy" />
-                  <span className="tool__label">Kopie</span>
-                </button>
-                <button
-                  type="button"
-                  className="tool tool--danger"
-                  onClick={() => {
-                    edit((xs) => removeItem(xs, selItem.uid));
-                    setSelected(null);
-                  }}
-                  aria-label="Von der Leinwand entfernen"
-                >
-                  <Icon name="trash" />
-                  <span className="tool__label">Entfernen</span>
-                </button>
-              </>
-            ) : (
-              <span className="piece-tools__hint">
-                {items.length ? "Tippe ein Teil an, um es zu bearbeiten." : "Ausgewählte Produkte erscheinen auf der Leinwand."}
-              </span>
-            )}
+            <div className="stage-bottom">
+              <button
+                ref={drawerOpener}
+                type="button"
+                className="btn btn--primary add-sheet-btn"
+                aria-controls="panel-galerie"
+                aria-expanded={drawerOpen}
+                onClick={() => setDrawerOpen(true)}
+              >
+                <Icon name="plus" /> Produkte
+              </button>
+              <button type="button" className={`lookbar ${summary.remaining !== null && summary.remaining < 0 ? "is-over" : ""}`} onClick={() => setLookOpen(true)} aria-haspopup="dialog">
+                <PriceTicker value={summary.productValue} className="lookbar__value" resetKey={loadKey} />
+                <span className="lookbar__state">
+                  {summary.remaining === null
+                    ? "Budget festlegen"
+                    : summary.remaining < 0
+                      ? `${formatCHF(-summary.remaining)} über Budget`
+                      : `Rest ${formatCHF(summary.remaining)}`}
+                </span>
+                <Icon name="chevronRight" size={16} />
+              </button>
+            </div>
           </div>
         </section>
 
-        <aside id="panel-fenster" className="builder__side panel" aria-label="Look und Details">
+        <aside id="panel-fenster" className="builder__side panel" aria-label="Teil, Budget und Look">
+          {budgetPanel("side")}
           {selItem && selProduct && (
-            <section className="inspector" aria-labelledby="insp-title">
+            <section className="side-block" aria-labelledby="insp-title">
               <h2 id="insp-title" className="panel__title">
                 Ausgewähltes Teil
               </h2>
-              <div className="inspector__product">
-                <div className="inspector__thumb" aria-hidden="true">
-                  <ProductImage product={selProduct} className="buy-row__img" />
-                </div>
-                <div>
-                  <p className="inspector__name">{selProduct.title}</p>
-                  <p className="inspector__meta">{selProduct.colorName}</p>
-                  <p className="inspector__meta">
-                    <span className="num">{formatCHF(bestOffer(selProduct).priceCHF)}</span> · {getShop(bestOffer(selProduct).shopId).name}
-                  </p>
-                  <p className="inspector__meta">{shippingText(getShop(bestOffer(selProduct).shopId))}</p>
-                  <a href={offerHref(bestOffer(selProduct).id, null)} target="_blank" rel="sponsored nofollow noopener" className="link-arrow">
-                    Angebot ansehen <Icon name="external" size={16} />
-                    <span className="sr-only">(Partnerlink, neues Fenster)</span>
-                  </a>
-                </div>
-              </div>
-              <div className="field">
-                <label htmlFor="insp-size">Grösse</label>
-                <input
-                  id="insp-size"
-                  type="range"
-                  min={MIN_W}
-                  max={MAX_W}
-                  step={5}
-                  value={Math.round(selItem.w)}
-                  onPointerDown={checkpoint}
-                  onKeyDown={checkpoint}
-                  onChange={(e) => {
-                    const w = Number(e.target.value);
-                    preview((s) => ({ ...s, items: updateItem(s.items, selItem.uid, { w }) }));
-                  }}
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="insp-rot">
-                  Drehung <span className="num">{Math.round(selItem.rotation)}°</span>
-                </label>
-                <input
-                  id="insp-rot"
-                  type="range"
-                  min={-180}
-                  max={180}
-                  step={1}
-                  value={Math.round(selItem.rotation)}
-                  onPointerDown={checkpoint}
-                  onKeyDown={checkpoint}
-                  onChange={(e) => {
-                    const rotation = Number(e.target.value);
-                    preview((s) => ({ ...s, items: updateItem(s.items, selItem.uid, { rotation }) }));
-                  }}
-                />
-              </div>
-              <div className="inspector__row">
-                <button type="button" className="btn btn--ghost btn--sm" onClick={() => edit((xs) => layerItem(xs, selItem.uid, "front"))}>
-                  Ganz nach vorne
-                </button>
-                <button type="button" className="btn btn--ghost btn--sm" onClick={() => edit((xs) => layerItem(xs, selItem.uid, "back"))}>
-                  Ganz nach hinten
-                </button>
-              </div>
+              {inspector("side")}
             </section>
           )}
-
-          <section className="in-window" aria-labelledby="in-window-title">
-            <h2 id="in-window-title" className="panel__title">
-              Im Look <span className="panel__count">{pieces(distinctCount(items))}</span>
-            </h2>
-            {rows.length ? (
-              <>
-                <ol className="mini-list">
-                  {rows.map((r) => (
-                    <li key={r.uid}>
-                      <button
-                        type="button"
-                        className={`mini-row ${selected === r.uid ? "is-selected" : ""}`}
-                        onClick={() => setSelected(r.uid)}
-                        aria-pressed={selected === r.uid}
-                      >
-                        <span className="tag-num tag-num--sm">{r.number}</span>
-                        <span className="mini-row__title">{r.product.title}</span>
-                        <span className="num">{formatCHF(r.offer.priceCHF)}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ol>
-                <p className="buy-total buy-total--sm">
-                  <span>Alles zusammen</span>
-                  <span className="num">{formatCHF(lookTotal(items))}</span>
-                </p>
-              </>
-            ) : (
-              <p className="panel__empty">Noch keine Teile ausgewählt.</p>
-            )}
-          </section>
-
-          <section className="details" aria-labelledby="details-title">
-            <h2 id="details-title" className="panel__title">
-              Details
-            </h2>
-            <div className="field">
-              <label htmlFor="look-occasion">Anlass</label>
-              <select
-                id="look-occasion"
-                value={state.occasion}
-                onChange={(e) => {
-                  const occasion = e.target.value as Occasion;
-                  commit((s) => ({ ...s, occasion }));
-                }}
-              >
-                {OCCASIONS.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="look-note">Notiz zum Look (optional)</label>
-              <textarea
-                id="look-note"
-                rows={3}
-                maxLength={280}
-                value={state.note}
-                placeholder="Wofür ist der Look gedacht?"
-                onFocus={checkpoint}
-                onChange={(e) => {
-                  const note = e.target.value;
-                  preview((s) => ({ ...s, note }));
-                }}
-              />
-            </div>
-            <fieldset className="field">
-              <legend>Hintergrund</legend>
-              <div className="backdrops">
-                {BACKDROPS.map((b) => (
-                  <label key={b.id} className="backdrop-opt" data-backdrop={b.id}>
-                    <input
-                      type="radio"
-                      name="backdrop"
-                      value={b.id}
-                      checked={state.backdrop === b.id}
-                      onChange={() => commit((s) => ({ ...s, backdrop: b.id }))}
-                    />
-                    <span className="backdrop-opt__chip" aria-hidden="true" />
-                    <span className="backdrop-opt__label">{b.label}</span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          </section>
+          {lookPanel("side", false)}
         </aside>
       </div>
     </div>

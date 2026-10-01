@@ -2,8 +2,13 @@
 // Usage: node scripts/e2e.mjs [outDir]   Needs Chrome or Edge installed.
 import { chromium } from "playwright-core";
 import fs from "node:fs";
+import { paket1 } from "./e2e-paket1.mjs";
+import { paket2 } from "./e2e-paket2.mjs";
+import { paket3 } from "./e2e-paket3.mjs";
+import { review2 } from "./e2e-review2.mjs";
 
 const out = process.argv[2] || "acceptance-out/e2e";
+const only = process.env.ONLY;
 fs.mkdirSync(out, { recursive: true });
 const base = process.env.BASE_URL || "http://localhost:3100";
 let browser;
@@ -16,6 +21,7 @@ for (const channel of ["chrome", "msedge"]) {
 let failed = 0;
 
 async function run(name, viewport, fn) {
+  if (only && !name.startsWith(only)) return;
   const mobile = viewport.width < 800;
   const ctx = await browser.newContext({ viewport, hasTouch: mobile, isMobile: mobile });
   const page = await ctx.newPage();
@@ -126,7 +132,7 @@ await run("guest-draft-survives", { width: 1280, height: 800 }, async (page) => 
   await page.locator(".product-card", { hasText: "Straight Jeans, hell" }).first().click();
   await page.waitForTimeout(400);
   await page.reload();
-  await page.waitForTimeout(800);
+  await page.locator(".piece--edit").nth(1).waitFor({ timeout: 10000 }).catch(() => {});
   if ((await page.locator(".piece--edit").count()) !== 2) throw new Error("draft lost after reload");
   await page.getByRole("button", { name: "Speichern" }).click();
   await page.locator("dialog[open]").waitFor();
@@ -143,7 +149,7 @@ await run("builder-phone", { width: 390, height: 844 }, async (page) => {
   await page.locator(".piece--edit").nth(1).tap();
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${out}/builder-phone-selected.png` });
-  await page.getByRole("button", { name: "Produkte hinzufügen" }).tap();
+  await page.getByRole("button", { name: "Produkte", exact: true }).tap();
   await page.waitForTimeout(900);
   await page.screenshot({ path: `${out}/builder-phone-sheet.png` });
   await page.locator(".product-card", { hasText: "Leder-Sneaker" }).first().tap();
@@ -179,6 +185,11 @@ await run("pages-desktop", { width: 1440, height: 900 }, async (page) => {
     await page.screenshot({ path: `${out}/${f}.png`, fullPage: true });
   }
 });
+
+await paket1({ run, base, out, draft });
+await paket2({ run, base, out, draft });
+await paket3({ run, base, out, draft });
+await review2({ run, base, out, draft });
 
 await browser.close();
 process.exit(failed ? 1 : 0);

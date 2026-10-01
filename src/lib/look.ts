@@ -1,5 +1,4 @@
 import { bestOffer, getProduct, getShop } from "./catalog";
-import { readingOrder } from "./collage";
 import { formatCHF } from "./format";
 import type { CanvasItem, Offer, Product, Shop } from "./types";
 
@@ -11,10 +10,21 @@ export interface PieceRow {
   shop: Shop;
 }
 
+const CATEGORY_ORDER: Record<string, number> = { oberteile: 0, hosen: 1, schuhe: 2, taschen: 3, accessoires: 4 };
+
+/**
+ * Shopping-list order: tops, bottoms, shoes, bags, accessories; left to right inside a group.
+ * Stable for composed looks where pieces overlap, unlike a pure top-to-bottom reading order.
+ */
+export function outfitOrder(items: CanvasItem[]): CanvasItem[] {
+  const cat = (it: CanvasItem) => CATEGORY_ORDER[getProduct(it.productId)?.category ?? ""] ?? 9;
+  return [...items].sort((a, b) => cat(a) - cat(b) || a.x - b.x || a.y - b.y);
+}
+
 /** Pieces in tag order with their cheapest offer. Duplicates of one product keep their own tag. */
 export function pieceRows(items: CanvasItem[]): PieceRow[] {
   const rows: PieceRow[] = [];
-  readingOrder(items).forEach((it) => {
+  outfitOrder(items).forEach((it) => {
     const product = getProduct(it.productId);
     if (!product) return;
     const offer = bestOffer(product);

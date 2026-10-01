@@ -43,6 +43,7 @@ export function LookResolver({ id }: { id: string }) {
         items: look.items,
         authorName: look.isExample ? "Kollage Redaktion" : look.authorName,
         kind: look.isExample ? "beispiel" : look.status === "veroeffentlicht" ? "veroeffentlicht" : "privat",
+        tip: look.tip,
       }}
     />
   );

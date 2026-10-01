@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Backdrop, CanvasItem, Draft, Occasion } from "@/lib/types";
-import { getDraft, setDraft } from "@/lib/store";
+import { archiveDraft, getDraft, probeStorage, setDraft } from "@/lib/store";
 
 export interface Snapshot {
   items: CanvasItem[];
@@ -12,9 +12,10 @@ export interface Snapshot {
   backdrop: Backdrop;
   lookId: string | null;
   basedOn: string | null;
+  budget?: number | null;
 }
 
-export const EMPTY: Snapshot = { items: [], title: "", note: "", occasion: "alltag", backdrop: "papier", lookId: null, basedOn: null };
+export const EMPTY: Snapshot = { items: [], title: "", note: "", occasion: "alltag", backdrop: "papier", lookId: null, basedOn: null, budget: null };
 
 function fromDraft(d: Draft | null): Snapshot {
   if (!d) return EMPTY;
@@ -26,6 +27,7 @@ function fromDraft(d: Draft | null): Snapshot {
     backdrop: d.backdrop ?? "papier",
     lookId: d.lookId ?? null,
     basedOn: d.basedOn ?? null,
+    budget: d.budget ?? null,
   };
 }
 
@@ -48,15 +50,44 @@ export function useBuilder() {
   live.current = h.present;
 
   useEffect(() => {
-    setH({ past: [], present: fromDraft(getDraft()), future: [] });
+    probeStorage();
+    const stored = getDraft();
+    setH((cur) => {
+      // Someone was faster than the load (clicked right after hydration): keep that work and
+      // put the stored draft aside instead of overwriting either of them.
+      if (cur.past.length > 0) {
+        if (stored && stored.items.length) archiveDraft(stored);
+        return cur;
+      }
+      return { past: [], present: fromDraft(stored), future: [] };
+    });
     setReady(true);
+  }, []);
+
+  /* Autosave, debounced. `dirty` makes sure the last change is written when the page is left early. */
+  const dirty = useRef(false);
+  /** Result of the last autosave: the UI only claims "gesichert" after a write that really succeeded. */
+  const [draftSaved, setDraftSaved] = useState<boolean | null>(null);
+  const flush = useCallback(() => {
+    if (!dirty.current) return;
+    dirty.current = false;
+    setDraftSaved(setDraft({ ...live.current, updatedAt: new Date().toISOString() }));
   }, []);
 
   useEffect(() => {
     if (!ready) return;
-    const t = window.setTimeout(() => setDraft({ ...h.present, updatedAt: new Date().toISOString() }), 250);
+    dirty.current = true;
+    const t = window.setTimeout(flush, 250);
     return () => window.clearTimeout(t);
-  }, [h.present, ready]);
+  }, [h.present, ready, flush]);
+
+  useEffect(() => {
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+  }, [flush]);
 
   /** Commit a change as one history step. */
   const commit = useCallback((next: (s: Snapshot) => Snapshot) => {
@@ -79,14 +110,17 @@ export function useBuilder() {
   const undo = useCallback(() => {
     setH((cur) => {
       if (!cur.past.length) return cur;
-      return { past: cur.past.slice(0, -1), present: cur.past[cur.past.length - 1], future: [cur.present, ...cur.future] };
+      // The budget is a personal setting, not part of the collage history.
+      const prev = { ...cur.past[cur.past.length - 1], budget: cur.present.budget };
+      return { past: cur.past.slice(0, -1), present: prev, future: [cur.present, ...cur.future] };
     });
   }, []);
 
   const redo = useCallback(() => {
     setH((cur) => {
       if (!cur.future.length) return cur;
-      return { past: [...cur.past, cur.present], present: cur.future[0], future: cur.future.slice(1) };
+      const next = { ...cur.future[0], budget: cur.present.budget };
+      return { past: [...cur.past, cur.present], present: next, future: cur.future.slice(1) };
     });
   }, []);
 
@@ -101,5 +135,6 @@ export function useBuilder() {
     canUndo: h.past.length > 0,
     canRedo: h.future.length > 0,
     live,
+    draftSaved,
   };
 }
