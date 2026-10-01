@@ -224,3 +224,18 @@ export function readingOrder(items: CanvasItem[]): CanvasItem[] {
     return rowA - rowB || a.x - b.x;
   });
 }
+
+/**
+ * Swap the product behind a placed piece. Centre, rotation and layer stay; the
+ * new image keeps its own aspect ratio and is fitted into the old piece's box.
+ */
+export function replaceItem(items: CanvasItem[], uid: string, productId: string, lookup: InfoLookup): CanvasItem[] {
+  const it = items.find((i) => i.uid === uid);
+  if (!it) return items;
+  const oldInfo = lookup(it.productId);
+  const newInfo = lookup(productId);
+  if (!oldInfo || !newInfo) return items;
+  const oldH = it.w * oldInfo.aspect;
+  const w = Math.min(it.w, oldH / newInfo.aspect);
+  return items.map((o) => (o.uid === uid ? clampItem({ ...o, productId, w }) : o));
+}

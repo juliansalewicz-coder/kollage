@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { bestOffer, getProduct, getShop, imageAspect } from "@/lib/catalog";
+import { budgetSummary, mostExpensive } from "@/lib/budget";
+import { getProduct, imageAspect } from "@/lib/catalog";
 import {
   addItem,
   autoArrange,
@@ -12,20 +13,19 @@ import {
   duplicateItem,
   infoFromProduct,
   layerItem,
-  MAX_W,
-  MIN_W,
   newUid,
   removeItem,
+  replaceItem,
   rotateItem,
   scaleItem,
   updateItem,
 } from "@/lib/collage";
+import { draftNeedsGuard } from "@/lib/draft-guard";
 import { requireLogin, toast } from "@/lib/events";
 import { formatCHF, pieces } from "@/lib/format";
-import { distinctCount, lookTotal, offerHref, pieceRows, shippingText } from "@/lib/look";
+import { distinctCount, pieceRows } from "@/lib/look";
 import { BACKDROPS, getSeedLook, lookup, OCCASIONS } from "@/lib/seed-looks";
 import { decodeLook } from "@/lib/share";
-import { draftNeedsGuard } from "@/lib/draft-guard";
 import {
   archiveDraft,
   getArchivedDrafts,
@@ -33,29 +33,37 @@ import {
   getSession,
   newLookId,
   removeArchivedDraft,
+  toggleFavorite,
   upsertLook,
+  useFavorites,
   useSession,
   useStorageStatus,
 } from "@/lib/store";
 import type { Look, LookStatus, Occasion } from "@/lib/types";
-import { ProductImage } from "../GarmentArt";
+import { Icon } from "../Icon";
 import { LookWindow } from "../LookWindow";
 import { Sheet } from "../Sheet";
-
-const START_LOOKS = ["herbst-in-bern", "erster-arbeitstag", "sonntag-am-see"];
-import { Icon } from "../Icon";
+import { BudgetBox } from "./BudgetBox";
 import { BuilderCanvas } from "./BuilderCanvas";
 import { Gallery } from "./Gallery";
+import { PieceInspector } from "./PieceInspector";
+import { ReplaceSheet } from "./ReplaceSheet";
 import { EMPTY, useBuilder, type Snapshot } from "./useBuilder";
+
+const START_LOOKS = ["herbst-in-bern", "erster-arbeitstag", "sonntag-am-see"];
 
 export function Builder() {
   const router = useRouter();
   const params = useSearchParams();
   const session = useSession();
+  const favs = useFavorites();
   const { state, ready, commit, preview, checkpoint, undo, redo, canUndo, canRedo, live } = useBuilder();
   const [selected, setSelected] = useState<string | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const sheetOpener = useRef<HTMLButtonElement>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const drawerOpener = useRef<HTMLButtonElement>(null);
+  const [replaceFor, setReplaceFor] = useState<string | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [lookOpen, setLookOpen] = useState(false);
   const [titleError, setTitleError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [announce, setAnnounce] = useState("");
@@ -66,7 +74,8 @@ export function Builder() {
   const [pending, setPending] = useState<{ next: Snapshot; label: string; archiveId?: string } | null>(null);
 
   function apply(next: Snapshot, archiveId?: string) {
-    commit(() => next);
+    // The personal budget belongs to the person, not to the look being opened.
+    commit((cur) => ({ ...next, budget: cur.budget ?? null }));
     setSelected(null);
     if (archiveId) removeArchivedDraft(archiveId);
   }
@@ -88,7 +97,7 @@ export function Builder() {
     apply(p.next, p.archiveId);
   }
 
-  /* Open a look from ?look= (remix), ?edit= (own look) or ?d= (shared link). */
+  /* Open a look from ?look= (remix), ?edit= (own look), ?d= (shared), ?entwurf= (archived), ?neu, ?add. */
   useEffect(() => {
     if (!ready) return;
     const lookParam = params.get("look");
@@ -134,7 +143,7 @@ export function Builder() {
       }
     } else if (lookParam) {
       const src = getSeedLook(lookParam) ?? getLooks().find((l) => l.id === lookParam);
-      if (src)
+      if (src) {
         next = {
           items: src.items.map((it) => ({ ...it, uid: newUid() })),
           title: `${src.title} (Variante)`,
@@ -144,7 +153,8 @@ export function Builder() {
           lookId: null,
           basedOn: src.id,
         };
-      if (src) label = `den Look «${src.title}»`;
+        label = `den Look «${src.title}»`;
+      }
     } else if (data) {
       const shared = decodeLook(data, (id) => Boolean(getProduct(id)));
       if (shared) next = { ...shared, items: shared.items.map((it) => ({ ...it, uid: newUid() })), note: "", lookId: null, basedOn: null };
@@ -163,7 +173,7 @@ export function Builder() {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const el = e.target as HTMLElement;
-      if (el.closest("input, textarea, select")) return;
+      if (el.closest("input, textarea, select, dialog")) return;
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
@@ -187,10 +197,13 @@ export function Builder() {
     return m;
   }, [items]);
   const rows = pieceRows(items);
+  const budget = state.budget ?? null;
+  const summary = useMemo(() => budgetSummary(items, budget), [items, budget]);
+  const replaceItemNow = replaceFor ? items.find((i) => i.uid === replaceFor) ?? null : null;
 
-  function closeSheet() {
-    setSheetOpen(false);
-    sheetOpener.current?.focus();
+  function closeDrawer() {
+    setDrawerOpen(false);
+    drawerOpener.current?.focus();
   }
 
   function add(productId: string) {
@@ -215,6 +228,19 @@ export function Builder() {
   }
 
   const edit = (fn: (xs: typeof items) => typeof items) => commit((s) => ({ ...s, items: fn(s.items) }));
+
+  function replaceWith(productId: string) {
+    const uid = replaceFor;
+    if (!uid) return;
+    const before = live.current.items.find((i) => i.uid === uid);
+    const oldP = before ? getProduct(before.productId) : undefined;
+    const newP = getProduct(productId);
+    edit((xs) => replaceItem(xs, uid, productId, lookup));
+    setReplaceFor(null);
+    setMoreOpen(false);
+    setSelected(uid);
+    if (oldP && newP) toast(`${oldP.title} ersetzt durch ${newP.title}. «Rückgängig» stellt es wieder her.`);
+  }
 
   function persist(status?: LookStatus): { look: Look; persisted: boolean } {
     const user = getSession()!;
@@ -282,7 +308,8 @@ export function Builder() {
     });
   }
 
-  const editingOwn = Boolean(state.lookId && session && getLooks().some((l) => l.id === state.lookId && l.ownerEmail === session.email));
+  const ownLook = state.lookId && session ? getLooks().find((l) => l.id === state.lookId && l.ownerEmail === session.email) : undefined;
+  const isPublished = ownLook?.status === "veroeffentlicht";
 
   const emptyState = (
     <div className="canvas-empty">
@@ -306,8 +333,143 @@ export function Builder() {
     </div>
   );
 
+  const inspector = (prefix: string) =>
+    selItem && selProduct ? (
+      <PieceInspector
+        item={selItem}
+        product={selProduct}
+        idPrefix={prefix}
+        onReplace={() => setReplaceFor(selItem.uid)}
+        onStart={checkpoint}
+        onScale={(w) => preview((s) => ({ ...s, items: updateItem(s.items, selItem.uid, { w }) }))}
+        onRotate={(rotation) => preview((s) => ({ ...s, items: updateItem(s.items, selItem.uid, { rotation }) }))}
+        onLayer={(move) => edit((xs) => layerItem(xs, selItem.uid, move))}
+        onDuplicate={() => {
+          const id = newUid();
+          edit((xs) => duplicateItem(xs, selItem.uid, id));
+          setSelected(id);
+        }}
+      />
+    ) : null;
+
+  const lookPanel = (prefix: string) => (
+    <>
+      <section className="side-block" aria-labelledby={`${prefix}-budget-title`}>
+        <h2 id={`${prefix}-budget-title`} className="panel__title">
+          Budget
+        </h2>
+        <BudgetBox
+          summary={summary}
+          idPrefix={prefix}
+          onBudget={(value) => preview((s) => ({ ...s, budget: value }))}
+          onCheaper={
+            items.length
+              ? () => {
+                  const it = mostExpensive(items);
+                  if (it) {
+                    setSelected(it.uid);
+                    setLookOpen(false);
+                    setReplaceFor(it.uid);
+                  }
+                }
+              : null
+          }
+        />
+      </section>
+
+      <section className="side-block" aria-labelledby={`${prefix}-list-title`}>
+        <h2 id={`${prefix}-list-title`} className="panel__title">
+          Im Look <span className="panel__count">{pieces(distinctCount(items))}</span>
+        </h2>
+        {rows.length ? (
+          <ol className="mini-list">
+            {rows.map((r) => (
+              <li key={r.uid}>
+                <button
+                  type="button"
+                  className={`mini-row ${selected === r.uid ? "is-selected" : ""}`}
+                  onClick={() => {
+                    setSelected(r.uid);
+                    setLookOpen(false);
+                  }}
+                  aria-pressed={selected === r.uid}
+                >
+                  <span className="tag-num tag-num--sm">{r.number}</span>
+                  <span className="mini-row__title">{r.product.title}</span>
+                  <span className="num">{formatCHF(r.offer.priceCHF)}</span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="panel__empty">Noch keine Teile ausgewählt.</p>
+        )}
+      </section>
+
+      <details className="side-block details" open={prefix === "side"}>
+        <summary className="panel__title details__summary">
+          Look-Details <Icon name="chevronDown" size={16} />
+        </summary>
+        <div className="details__body">
+          <div className="field">
+            <label htmlFor={`${prefix}-occasion`}>Anlass</label>
+            <select
+              id={`${prefix}-occasion`}
+              value={state.occasion}
+              onChange={(e) => {
+                const occasion = e.target.value as Occasion;
+                commit((s) => ({ ...s, occasion }));
+              }}
+            >
+              {OCCASIONS.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor={`${prefix}-note`}>Notiz zum Look (optional)</label>
+            <textarea
+              id={`${prefix}-note`}
+              rows={3}
+              maxLength={280}
+              value={state.note}
+              placeholder="Wofür ist der Look gedacht?"
+              onFocus={checkpoint}
+              onChange={(e) => {
+                const note = e.target.value;
+                preview((s) => ({ ...s, note }));
+              }}
+            />
+          </div>
+          <fieldset className="field">
+            <legend>Hintergrund der Leinwand</legend>
+            <div className="backdrops">
+              {BACKDROPS.map((b) => (
+                <label key={b.id} className="backdrop-opt" data-backdrop={b.id}>
+                  <input
+                    type="radio"
+                    name={`${prefix}-backdrop`}
+                    value={b.id}
+                    checked={state.backdrop === b.id}
+                    onChange={() => commit((s) => ({ ...s, backdrop: b.id }))}
+                  />
+                  <span className="backdrop-opt__chip" aria-hidden="true" />
+                  <span className="backdrop-opt__label">{b.label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        </div>
+      </details>
+    </>
+  );
+
+  const favSelected = selProduct ? favs.products.includes(selProduct.id) : false;
+
   return (
-    <div className="builder" data-sheet={sheetOpen ? "open" : "closed"}>
+    <div className="builder" data-sheet={drawerOpen ? "open" : "closed"}>
       <div className="builder__bar">
         <div className="field builder__title">
           <label htmlFor="look-title">Titel des Looks</label>
@@ -324,7 +486,7 @@ export function Builder() {
               if (titleError && v.trim()) setTitleError(null);
             }}
             aria-invalid={titleError ? true : undefined}
-            aria-describedby={titleError ? "look-title-err" : undefined}
+            aria-describedby={titleError ? "look-title-err" : "builder-status"}
           />
           {titleError && (
             <p id="look-title-err" className="field__error" role="alert">
@@ -332,22 +494,28 @@ export function Builder() {
             </p>
           )}
         </div>
-        <div className="builder__status">
+        <div className="builder__status" id="builder-status">
           {storageStatus === "sitzung" ? (
             <span className="builder__saved is-warning" role="status">
               <Icon name="lock" size={16} /> Nicht dauerhaft gesichert: Browserspeicher blockiert. Änderungen gehen beim Schliessen verloren.
             </span>
+          ) : isPublished ? (
+            <span className="builder__saved is-public">
+              Veröffentlichter Look: «Änderungen veröffentlichen» macht deine Änderungen sofort öffentlich sichtbar.
+            </span>
           ) : (
-            <span className="builder__saved">{editingOwn ? "Gespeicherter Look, Entwurf wird laufend gesichert" : "Entwurf, automatisch in diesem Browser gesichert"}</span>
+            <span className="builder__saved">{ownLook ? "Gespeicherter Look, Entwurf wird laufend gesichert" : "Entwurf, automatisch in diesem Browser gesichert"}</span>
           )}
         </div>
         <div className="builder__actions">
           <button type="button" className="btn btn--ghost" onClick={save}>
-            Speichern
+            {isPublished ? "Änderungen veröffentlichen" : "Speichern"}
           </button>
-          <button type="button" className="btn btn--primary" onClick={publish}>
-            Veröffentlichen
-          </button>
+          {!isPublished && (
+            <button type="button" className="btn btn--primary" onClick={publish}>
+              Veröffentlichen
+            </button>
+          )}
         </div>
         {formError && (
           <p className="builder__error" role="alert">
@@ -362,7 +530,8 @@ export function Builder() {
 
       <Sheet open={Boolean(pending)} onClose={() => resolvePending("keep")} title="Ungesicherten Entwurf behalten?" closeLabel="Am Entwurf weiterarbeiten">
         <p className="sheet__text">
-          Auf deiner Leinwand liegt ein Entwurf mit {distinctCount(state.items) === 1 ? "einem Teil" : `${distinctCount(state.items)} Teilen`}, der nicht gespeichert ist. Du willst {pending?.label} öffnen.
+          Auf deiner Leinwand liegt ein Entwurf mit {distinctCount(state.items) === 1 ? "einem Teil" : `${distinctCount(state.items)} Teilen`}, der nicht gespeichert
+          ist. Du willst {pending?.label} öffnen.
         </p>
         <div className="sheet__choices">
           <button type="button" className="btn btn--primary" onClick={() => resolvePending("archive")}>
@@ -378,18 +547,32 @@ export function Builder() {
         <p className="fineprint">Gesicherte Entwürfe findest du unter «Meine Looks», auch ohne Anmeldung.</p>
       </Sheet>
 
+      <ReplaceSheet
+        productId={replaceItemNow?.productId ?? null}
+        open={Boolean(replaceItemNow)}
+        onClose={() => setReplaceFor(null)}
+        onPick={replaceWith}
+      />
+
+      <Sheet open={moreOpen && Boolean(selItem)} onClose={() => setMoreOpen(false)} title="Teil bearbeiten" className="sheet--compact">
+        {inspector("more")}
+      </Sheet>
+
+      <Sheet open={lookOpen} onClose={() => setLookOpen(false)} title="Budget und Look" className="sheet--compact">
+        {lookPanel("sheet")}
+      </Sheet>
 
       <div className="builder__body">
-        <div className="sheet-scrim" aria-hidden="true" onClick={closeSheet} />
+        <div className="sheet-scrim" aria-hidden="true" onClick={closeDrawer} />
         <aside
           id="panel-galerie"
           className="builder__gallery panel"
           aria-label="Produkte"
           onKeyDown={(e) => {
-            if (e.key === "Escape" && sheetOpen) closeSheet();
+            if (e.key === "Escape" && drawerOpen) closeDrawer();
           }}
         >
-          <Gallery onAdd={add} counts={counts} onClose={closeSheet} open={sheetOpen} />
+          <Gallery onAdd={add} counts={counts} onClose={closeDrawer} open={drawerOpen} />
         </aside>
 
         <section className="builder__stage" aria-label="Leinwand bearbeiten">
@@ -425,21 +608,26 @@ export function Builder() {
             emptyState={emptyState}
           />
 
-          <button
-            ref={sheetOpener}
-            type="button"
-            className="btn btn--primary add-sheet-btn"
-            aria-controls="panel-galerie"
-            aria-expanded={sheetOpen}
-            onClick={() => setSheetOpen(true)}
-          >
-            <Icon name="plus" /> Produkte hinzufügen
-          </button>
-
           <div className={`piece-tools ${selItem ? "" : "is-idle"}`} role="toolbar" aria-label="Ausgewähltes Teil">
             {selItem && selProduct ? (
               <>
                 <span className="piece-tools__name">{selProduct.title}</span>
+                <button type="button" className="tool tool--key" onClick={() => setReplaceFor(selItem.uid)}>
+                  <Icon name="swap" />
+                  <span className="tool__label">Ersetzen</span>
+                </button>
+                <button
+                  type="button"
+                  className={`tool ${favSelected ? "is-fav" : ""}`}
+                  aria-pressed={favSelected}
+                  onClick={() => {
+                    const res = toggleFavorite("products", selProduct.id);
+                    toast(res.persisted ? (res.active ? "Produkt gemerkt" : "Aus Gemerkt entfernt") : "Gemerkt, aber nur für diese Sitzung: Browserspeicher blockiert");
+                  }}
+                >
+                  <Icon name={favSelected ? "heartFilled" : "heart"} />
+                  <span className="tool__label">{favSelected ? "Gemerkt" : "Merken"}</span>
+                </button>
                 <button type="button" className="tool" onClick={() => edit((xs) => scaleItem(xs, selItem.uid, 1 / 1.1))} aria-label="Kleiner">
                   <Icon name="shrink" />
                   <span className="tool__label">Kleiner</span>
@@ -448,34 +636,13 @@ export function Builder() {
                   <Icon name="grow" />
                   <span className="tool__label">Grösser</span>
                 </button>
-                <button type="button" className="tool" onClick={() => edit((xs) => rotateItem(xs, selItem.uid, -10))} aria-label="Nach links drehen">
-                  <Icon name="rotateLeft" />
-                  <span className="tool__label">Links</span>
-                </button>
-                <button type="button" className="tool" onClick={() => edit((xs) => rotateItem(xs, selItem.uid, 10))} aria-label="Nach rechts drehen">
+                <button type="button" className="tool" onClick={() => edit((xs) => rotateItem(xs, selItem.uid, 10))} aria-label="Drehen">
                   <Icon name="rotateRight" />
-                  <span className="tool__label">Rechts</span>
+                  <span className="tool__label">Drehen</span>
                 </button>
                 <button type="button" className="tool" onClick={() => edit((xs) => layerItem(xs, selItem.uid, "forward"))} aria-label="Eine Ebene nach vorne">
                   <Icon name="layerUp" />
-                  <span className="tool__label">Vor</span>
-                </button>
-                <button type="button" className="tool" onClick={() => edit((xs) => layerItem(xs, selItem.uid, "backward"))} aria-label="Eine Ebene nach hinten">
-                  <Icon name="layerDown" />
-                  <span className="tool__label">Zurück</span>
-                </button>
-                <button
-                  type="button"
-                  className="tool"
-                  onClick={() => {
-                    const id = newUid();
-                    edit((xs) => duplicateItem(xs, selItem.uid, id));
-                    setSelected(id);
-                  }}
-                  aria-label="Duplizieren"
-                >
-                  <Icon name="copy" />
-                  <span className="tool__label">Kopie</span>
+                  <span className="tool__label">Nach vorne</span>
                 </button>
                 <button
                   type="button"
@@ -489,172 +656,53 @@ export function Builder() {
                   <Icon name="trash" />
                   <span className="tool__label">Entfernen</span>
                 </button>
+                <button type="button" className="tool tool--more" onClick={() => setMoreOpen(true)} aria-haspopup="dialog">
+                  <Icon name="more" />
+                  <span className="tool__label">Mehr</span>
+                </button>
               </>
             ) : (
               <span className="piece-tools__hint">
-                {items.length ? "Tippe ein Teil an, um es zu bearbeiten." : "Ausgewählte Produkte erscheinen auf der Leinwand."}
+                {items.length ? "Tippe ein Teil an, um es zu ersetzen oder zu bearbeiten." : "Ausgewählte Produkte erscheinen auf der Leinwand."}
               </span>
             )}
           </div>
+
+          <div className="stage-bottom">
+            <button
+              ref={drawerOpener}
+              type="button"
+              className="btn btn--primary add-sheet-btn"
+              aria-controls="panel-galerie"
+              aria-expanded={drawerOpen}
+              onClick={() => setDrawerOpen(true)}
+            >
+              <Icon name="plus" /> Produkte
+            </button>
+            <button type="button" className={`lookbar ${summary.remaining !== null && summary.remaining < 0 ? "is-over" : ""}`} onClick={() => setLookOpen(true)} aria-haspopup="dialog">
+              <span className="lookbar__value num">{formatCHF(summary.productValue)}</span>
+              <span className="lookbar__state">
+                {summary.remaining === null
+                  ? "Budget festlegen"
+                  : summary.remaining < 0
+                    ? `${formatCHF(-summary.remaining)} über Budget`
+                    : `Rest ${formatCHF(summary.remaining)}`}
+              </span>
+              <Icon name="chevronRight" size={16} />
+            </button>
+          </div>
         </section>
 
-        <aside id="panel-fenster" className="builder__side panel" aria-label="Look und Details">
+        <aside id="panel-fenster" className="builder__side panel" aria-label="Teil, Budget und Look">
           {selItem && selProduct && (
-            <section className="inspector" aria-labelledby="insp-title">
+            <section className="side-block" aria-labelledby="insp-title">
               <h2 id="insp-title" className="panel__title">
                 Ausgewähltes Teil
               </h2>
-              <div className="inspector__product">
-                <div className="inspector__thumb" aria-hidden="true">
-                  <ProductImage product={selProduct} className="buy-row__img" />
-                </div>
-                <div>
-                  <p className="inspector__name">{selProduct.title}</p>
-                  <p className="inspector__meta">{selProduct.colorName}</p>
-                  <p className="inspector__meta">
-                    <span className="num">{formatCHF(bestOffer(selProduct).priceCHF)}</span> · {getShop(bestOffer(selProduct).shopId).name}
-                  </p>
-                  <p className="inspector__meta">{shippingText(getShop(bestOffer(selProduct).shopId))}</p>
-                  <a href={offerHref(bestOffer(selProduct).id, null)} target="_blank" rel="sponsored nofollow noopener" className="link-arrow">
-                    Angebot ansehen <Icon name="external" size={16} />
-                    <span className="sr-only">(Partnerlink, neues Fenster)</span>
-                  </a>
-                </div>
-              </div>
-              <div className="field">
-                <label htmlFor="insp-size">Grösse</label>
-                <input
-                  id="insp-size"
-                  type="range"
-                  min={MIN_W}
-                  max={MAX_W}
-                  step={5}
-                  value={Math.round(selItem.w)}
-                  onPointerDown={checkpoint}
-                  onKeyDown={checkpoint}
-                  onChange={(e) => {
-                    const w = Number(e.target.value);
-                    preview((s) => ({ ...s, items: updateItem(s.items, selItem.uid, { w }) }));
-                  }}
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="insp-rot">
-                  Drehung <span className="num">{Math.round(selItem.rotation)}°</span>
-                </label>
-                <input
-                  id="insp-rot"
-                  type="range"
-                  min={-180}
-                  max={180}
-                  step={1}
-                  value={Math.round(selItem.rotation)}
-                  onPointerDown={checkpoint}
-                  onKeyDown={checkpoint}
-                  onChange={(e) => {
-                    const rotation = Number(e.target.value);
-                    preview((s) => ({ ...s, items: updateItem(s.items, selItem.uid, { rotation }) }));
-                  }}
-                />
-              </div>
-              <div className="inspector__row">
-                <button type="button" className="btn btn--ghost btn--sm" onClick={() => edit((xs) => layerItem(xs, selItem.uid, "front"))}>
-                  Ganz nach vorne
-                </button>
-                <button type="button" className="btn btn--ghost btn--sm" onClick={() => edit((xs) => layerItem(xs, selItem.uid, "back"))}>
-                  Ganz nach hinten
-                </button>
-              </div>
+              {inspector("side")}
             </section>
           )}
-
-          <section className="in-window" aria-labelledby="in-window-title">
-            <h2 id="in-window-title" className="panel__title">
-              Im Look <span className="panel__count">{pieces(distinctCount(items))}</span>
-            </h2>
-            {rows.length ? (
-              <>
-                <ol className="mini-list">
-                  {rows.map((r) => (
-                    <li key={r.uid}>
-                      <button
-                        type="button"
-                        className={`mini-row ${selected === r.uid ? "is-selected" : ""}`}
-                        onClick={() => setSelected(r.uid)}
-                        aria-pressed={selected === r.uid}
-                      >
-                        <span className="tag-num tag-num--sm">{r.number}</span>
-                        <span className="mini-row__title">{r.product.title}</span>
-                        <span className="num">{formatCHF(r.offer.priceCHF)}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ol>
-                <p className="buy-total buy-total--sm">
-                  <span>Alles zusammen</span>
-                  <span className="num">{formatCHF(lookTotal(items))}</span>
-                </p>
-              </>
-            ) : (
-              <p className="panel__empty">Noch keine Teile ausgewählt.</p>
-            )}
-          </section>
-
-          <section className="details" aria-labelledby="details-title">
-            <h2 id="details-title" className="panel__title">
-              Details
-            </h2>
-            <div className="field">
-              <label htmlFor="look-occasion">Anlass</label>
-              <select
-                id="look-occasion"
-                value={state.occasion}
-                onChange={(e) => {
-                  const occasion = e.target.value as Occasion;
-                  commit((s) => ({ ...s, occasion }));
-                }}
-              >
-                {OCCASIONS.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="look-note">Notiz zum Look (optional)</label>
-              <textarea
-                id="look-note"
-                rows={3}
-                maxLength={280}
-                value={state.note}
-                placeholder="Wofür ist der Look gedacht?"
-                onFocus={checkpoint}
-                onChange={(e) => {
-                  const note = e.target.value;
-                  preview((s) => ({ ...s, note }));
-                }}
-              />
-            </div>
-            <fieldset className="field">
-              <legend>Hintergrund</legend>
-              <div className="backdrops">
-                {BACKDROPS.map((b) => (
-                  <label key={b.id} className="backdrop-opt" data-backdrop={b.id}>
-                    <input
-                      type="radio"
-                      name="backdrop"
-                      value={b.id}
-                      checked={state.backdrop === b.id}
-                      onChange={() => commit((s) => ({ ...s, backdrop: b.id }))}
-                    />
-                    <span className="backdrop-opt__chip" aria-hidden="true" />
-                    <span className="backdrop-opt__label">{b.label}</span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          </section>
+          {lookPanel("side")}
         </aside>
       </div>
     </div>

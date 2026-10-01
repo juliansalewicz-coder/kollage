@@ -4,6 +4,7 @@ import { chromium } from "playwright-core";
 import fs from "node:fs";
 import { paket1 } from "./e2e-paket1.mjs";
 import { paket2 } from "./e2e-paket2.mjs";
+import { paket3 } from "./e2e-paket3.mjs";
 
 const out = process.argv[2] || "acceptance-out/e2e";
 fs.mkdirSync(out, { recursive: true });
@@ -145,7 +146,7 @@ await run("builder-phone", { width: 390, height: 844 }, async (page) => {
   await page.locator(".piece--edit").nth(1).tap();
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${out}/builder-phone-selected.png` });
-  await page.getByRole("button", { name: "Produkte hinzufügen" }).tap();
+  await page.getByRole("button", { name: "Produkte", exact: true }).tap();
   await page.waitForTimeout(900);
   await page.screenshot({ path: `${out}/builder-phone-sheet.png` });
   await page.locator(".product-card", { hasText: "Leder-Sneaker" }).first().tap();
@@ -184,6 +185,7 @@ await run("pages-desktop", { width: 1440, height: 900 }, async (page) => {
 
 await paket1({ run, base, out, draft });
 await paket2({ run, base, out, draft });
+await paket3({ run, base, out, draft });
 
 await browser.close();
 process.exit(failed ? 1 : 0);

@@ -137,6 +137,8 @@ export interface Draft {
   backdrop: Backdrop;
   basedOn: string | null;
   updatedAt: string;
+  /** Personal outfit budget in CHF; kept when another look is opened. */
+  budget?: number | null;
 }
 
 export interface Session {

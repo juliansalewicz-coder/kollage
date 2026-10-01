@@ -11,3 +11,4 @@ docs/higgsfield/cut/
 docs/higgsfield/jobs.tsv
 .impeccable/review/
 .impeccable/hook.cache.json
+.next-build

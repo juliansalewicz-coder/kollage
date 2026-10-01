@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { bestOffer, CATEGORIES, COLOR_FAMILIES, filterProducts, getShop, PRODUCTS } from "@/lib/catalog";
 import { formatCHF } from "@/lib/format";
+import { useFavorites } from "@/lib/store";
 import type { Category, ColorFamily } from "@/lib/types";
+import { ActiveFilters, type ActiveFilter } from "../ActiveFilters";
+import { FavoriteButton } from "../FavoriteButton";
 import { ProductImage } from "../GarmentArt";
 import { Icon } from "../Icon";
 
@@ -13,6 +16,8 @@ const PRICE_CAPS = [
   { id: "100", label: "bis CHF 100" },
   { id: "200", label: "bis CHF 200" },
 ];
+
+type Scope = "alle" | "gemerkt";
 
 export function Gallery({
   onAdd,
@@ -29,15 +34,17 @@ export function Gallery({
   useEffect(() => {
     if (open) searchRef.current?.focus({ preventScroll: true });
   }, [open]);
+  const favs = useFavorites();
+  const [scope, setScope] = useState<Scope>("alle");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<Category | "alle">("alle");
   const [colors, setColors] = useState<ColorFamily[]>([]);
   const [cap, setCap] = useState("");
 
-  const results = useMemo(
-    () => filterProducts(PRODUCTS, { query, category, colors, maxPrice: cap ? Number(cap) : null }),
-    [query, category, colors, cap],
-  );
+  const results = useMemo(() => {
+    const pool = scope === "gemerkt" ? PRODUCTS.filter((p) => favs.products.includes(p.id)) : PRODUCTS;
+    return filterProducts(pool, { query, category, colors, maxPrice: cap ? Number(cap) : null });
+  }, [scope, favs.products, query, category, colors, cap]);
 
   const toggleColor = (c: ColorFamily) => setColors((cs) => (cs.includes(c) ? cs.filter((x) => x !== c) : [...cs, c]));
   const reset = () => {
@@ -45,7 +52,16 @@ export function Gallery({
     setCategory("alle");
     setColors([]);
     setCap("");
+    setScope("alle");
   };
+
+  const active: ActiveFilter[] = [
+    ...(scope === "gemerkt" ? [{ key: "scope", label: "Nur gemerkte", onRemove: () => setScope("alle") }] : []),
+    ...(query ? [{ key: "q", label: `«${query}»`, onRemove: () => setQuery("") }] : []),
+    ...(category !== "alle" ? [{ key: "cat", label: CATEGORIES.find((c) => c.id === category)?.label ?? category, onRemove: () => setCategory("alle") }] : []),
+    ...colors.map((c) => ({ key: `c-${c}`, label: COLOR_FAMILIES.find((x) => x.id === c)?.label ?? c, onRemove: () => toggleColor(c) })),
+    ...(cap ? [{ key: "cap", label: PRICE_CAPS.find((p) => p.id === cap)?.label ?? cap, onRemove: () => setCap("") }] : []),
+  ];
 
   return (
     <div className="gallery">
@@ -57,12 +73,29 @@ export function Gallery({
         </button>
       </div>
       <p className="gallery__demo">Demo-Katalog · Demo-Renderings, keine angebotenen Artikel</p>
+
+      <div className="segmented" role="group" aria-label="Auswahl">
+        <button type="button" aria-pressed={scope === "alle"} onClick={() => setScope("alle")}>
+          Alle
+        </button>
+        <button type="button" aria-pressed={scope === "gemerkt"} onClick={() => setScope("gemerkt")}>
+          <Icon name="heart" size={16} /> Gemerkt <span className="num">{favs.products.length}</span>
+        </button>
+      </div>
+
       <div className="field field--search">
         <label htmlFor="product-search" className="sr-only">
           Produkte durchsuchen
         </label>
         <Icon name="search" className="field__icon" />
-        <input ref={searchRef} id="product-search" type="search" placeholder="Suche, z. B. Jeans, Leder, Grün" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input
+          ref={searchRef}
+          id="product-search"
+          type="search"
+          placeholder="Suche, z. B. Jeans, Leder, Grün"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
       </div>
 
       <div className="tabs-scroll" role="group" aria-label="Kategorie">
@@ -106,9 +139,12 @@ export function Gallery({
         </div>
       </div>
 
-      <p className="result-count" aria-live="polite">
-        {results.length === 1 ? "1 Teil" : `${results.length} Teile`}
-      </p>
+      <div className="gallery__result">
+        <p className="result-count" aria-live="polite">
+          {results.length === 1 ? "1 Teil" : `${results.length} Teile`}
+        </p>
+        <ActiveFilters filters={active} onReset={reset} />
+      </div>
 
       {results.length ? (
         <ul className="product-grid">
@@ -116,7 +152,7 @@ export function Gallery({
             const offer = bestOffer(p);
             const n = counts.get(p.id) ?? 0;
             return (
-              <li key={p.id}>
+              <li key={p.id} className="product-cell">
                 <button
                   type="button"
                   className="product-card"
@@ -146,13 +182,14 @@ export function Gallery({
                   </span>
                   <span className="sr-only">, zum Look hinzufügen</span>
                 </button>
+                <FavoriteButton kind="products" id={p.id} label={p.title} className="product-cell__fav" />
               </li>
             );
           })}
         </ul>
       ) : (
         <div className="empty empty--small">
-          <p>Kein Teil passt zu diesen Filtern.</p>
+          <p>{scope === "gemerkt" && favs.products.length === 0 ? "Noch nichts gemerkt. Tippe bei einem Produkt auf das Herz." : "Kein Teil passt zu diesen Filtern."}</p>
           <button type="button" className="btn btn--ghost btn--sm" onClick={reset}>
             Filter zurücksetzen
           </button>
