@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { budgetSummary, mostExpensive } from "@/lib/budget";
+import { bestSaving, budgetSummary } from "@/lib/budget";
 import { getProduct, imageAspect } from "@/lib/catalog";
 import {
   addItem,
@@ -352,31 +352,38 @@ export function Builder() {
       />
     ) : null;
 
-  const lookPanel = (prefix: string) => (
-    <>
-      <section className="side-block" aria-labelledby={`${prefix}-budget-title`}>
-        <h2 id={`${prefix}-budget-title`} className="panel__title">
-          Budget
-        </h2>
-        <BudgetBox
-          summary={summary}
-          idPrefix={prefix}
-          onBudget={(value) => preview((s) => ({ ...s, budget: value }))}
-          onCheaper={
-            items.length
-              ? () => {
-                  const it = mostExpensive(items);
-                  if (it) {
-                    setSelected(it.uid);
-                    setLookOpen(false);
-                    setReplaceFor(it.uid);
-                  }
-                }
-              : null
-          }
-        />
-      </section>
+  const saving = summary.remaining !== null && summary.remaining < 0 ? bestSaving(items) : null;
 
+  const budgetPanel = (prefix: string) => (
+    <section className="side-block" aria-labelledby={`${prefix}-budget-title`}>
+      <h2 id={`${prefix}-budget-title`} className="panel__title">
+        Budget
+      </h2>
+      <BudgetBox
+        summary={summary}
+        idPrefix={prefix}
+        onBudget={(value) => preview((s) => ({ ...s, budget: value }))}
+        onCheaper={
+          saving
+            ? {
+                title: saving.product.title,
+                saving: saving.saving,
+                run: () => {
+                  setSelected(saving.item.uid);
+                  setLookOpen(false);
+                  setReplaceFor(saving.item.uid);
+                },
+              }
+            : null
+        }
+      />
+    </section>
+  );
+
+  // Budget stays first so selecting a piece never pushes it out of view.
+  const lookPanel = (prefix: string, withBudget = true) => (
+    <>
+      {withBudget && budgetPanel(prefix)}
       <section className="side-block" aria-labelledby={`${prefix}-list-title`}>
         <h2 id={`${prefix}-list-title`} className="panel__title">
           Im Look <span className="panel__count">{pieces(distinctCount(items))}</span>
@@ -608,92 +615,96 @@ export function Builder() {
             emptyState={emptyState}
           />
 
-          <div className={`piece-tools ${selItem ? "" : "is-idle"}`} role="toolbar" aria-label="Ausgewähltes Teil">
-            {selItem && selProduct ? (
-              <>
-                <span className="piece-tools__name">{selProduct.title}</span>
-                <button type="button" className="tool tool--key" onClick={() => setReplaceFor(selItem.uid)}>
-                  <Icon name="swap" />
-                  <span className="tool__label">Ersetzen</span>
-                </button>
-                <button
-                  type="button"
-                  className={`tool ${favSelected ? "is-fav" : ""}`}
-                  aria-pressed={favSelected}
-                  onClick={() => {
-                    const res = toggleFavorite("products", selProduct.id);
-                    toast(res.persisted ? (res.active ? "Produkt gemerkt" : "Aus Gemerkt entfernt") : "Gemerkt, aber nur für diese Sitzung: Browserspeicher blockiert");
-                  }}
-                >
-                  <Icon name={favSelected ? "heartFilled" : "heart"} />
-                  <span className="tool__label">{favSelected ? "Gemerkt" : "Merken"}</span>
-                </button>
-                <button type="button" className="tool" onClick={() => edit((xs) => scaleItem(xs, selItem.uid, 1 / 1.1))} aria-label="Kleiner">
-                  <Icon name="shrink" />
-                  <span className="tool__label">Kleiner</span>
-                </button>
-                <button type="button" className="tool" onClick={() => edit((xs) => scaleItem(xs, selItem.uid, 1.1))} aria-label="Grösser">
-                  <Icon name="grow" />
-                  <span className="tool__label">Grösser</span>
-                </button>
-                <button type="button" className="tool" onClick={() => edit((xs) => rotateItem(xs, selItem.uid, 10))} aria-label="Drehen">
-                  <Icon name="rotateRight" />
-                  <span className="tool__label">Drehen</span>
-                </button>
-                <button type="button" className="tool" onClick={() => edit((xs) => layerItem(xs, selItem.uid, "forward"))} aria-label="Eine Ebene nach vorne">
-                  <Icon name="layerUp" />
-                  <span className="tool__label">Nach vorne</span>
-                </button>
-                <button
-                  type="button"
-                  className="tool tool--danger"
-                  onClick={() => {
-                    edit((xs) => removeItem(xs, selItem.uid));
-                    setSelected(null);
-                  }}
-                  aria-label="Von der Leinwand entfernen"
-                >
-                  <Icon name="trash" />
-                  <span className="tool__label">Entfernen</span>
-                </button>
-                <button type="button" className="tool tool--more" onClick={() => setMoreOpen(true)} aria-haspopup="dialog">
-                  <Icon name="more" />
-                  <span className="tool__label">Mehr</span>
-                </button>
-              </>
-            ) : (
-              <span className="piece-tools__hint">
-                {items.length ? "Tippe ein Teil an, um es zu ersetzen oder zu bearbeiten." : "Ausgewählte Produkte erscheinen auf der Leinwand."}
-              </span>
-            )}
-          </div>
+          {/* On phones this dock sticks to the bottom so the tools stay next to the outfit. */}
+          <div className="stage-dock">
+            <div className={`piece-tools ${selItem ? "" : "is-idle"}`} role="toolbar" aria-label="Ausgewähltes Teil">
+              {selItem && selProduct ? (
+                <>
+                  <span className="piece-tools__name">{selProduct.title}</span>
+                  <button type="button" className="tool tool--key" onClick={() => setReplaceFor(selItem.uid)}>
+                    <Icon name="swap" />
+                    <span className="tool__label">Ersetzen</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`tool ${favSelected ? "is-fav" : ""}`}
+                    aria-pressed={favSelected}
+                    onClick={() => {
+                      const res = toggleFavorite("products", selProduct.id);
+                      toast(res.persisted ? (res.active ? "Produkt gemerkt" : "Aus Gemerkt entfernt") : "Gemerkt, aber nur für diese Sitzung: Browserspeicher blockiert");
+                    }}
+                  >
+                    <Icon name={favSelected ? "heartFilled" : "heart"} />
+                    <span className="tool__label">{favSelected ? "Gemerkt" : "Merken"}</span>
+                  </button>
+                  <button type="button" className="tool tool--minor" onClick={() => edit((xs) => scaleItem(xs, selItem.uid, 1 / 1.1))} aria-label="Kleiner">
+                    <Icon name="shrink" />
+                    <span className="tool__label">Kleiner</span>
+                  </button>
+                  <button type="button" className="tool tool--minor" onClick={() => edit((xs) => scaleItem(xs, selItem.uid, 1.1))} aria-label="Grösser">
+                    <Icon name="grow" />
+                    <span className="tool__label">Grösser</span>
+                  </button>
+                  <button type="button" className="tool" onClick={() => edit((xs) => rotateItem(xs, selItem.uid, 10))} aria-label="Drehen">
+                    <Icon name="rotateRight" />
+                    <span className="tool__label">Drehen</span>
+                  </button>
+                  <button type="button" className="tool tool--minor" onClick={() => edit((xs) => layerItem(xs, selItem.uid, "forward"))} aria-label="Eine Ebene nach vorne">
+                    <Icon name="layerUp" />
+                    <span className="tool__label">Nach vorne</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="tool tool--danger"
+                    onClick={() => {
+                      edit((xs) => removeItem(xs, selItem.uid));
+                      setSelected(null);
+                    }}
+                    aria-label="Von der Leinwand entfernen"
+                  >
+                    <Icon name="trash" />
+                    <span className="tool__label">Entfernen</span>
+                  </button>
+                  <button type="button" className="tool tool--more" onClick={() => setMoreOpen(true)} aria-haspopup="dialog">
+                    <Icon name="more" />
+                    <span className="tool__label">Mehr</span>
+                  </button>
+                </>
+              ) : (
+                <span className="piece-tools__hint">
+                  {items.length ? "Tippe ein Teil an, um es zu ersetzen oder zu bearbeiten." : "Ausgewählte Produkte erscheinen auf der Leinwand."}
+                </span>
+              )}
+            </div>
 
-          <div className="stage-bottom">
-            <button
-              ref={drawerOpener}
-              type="button"
-              className="btn btn--primary add-sheet-btn"
-              aria-controls="panel-galerie"
-              aria-expanded={drawerOpen}
-              onClick={() => setDrawerOpen(true)}
-            >
-              <Icon name="plus" /> Produkte
-            </button>
-            <button type="button" className={`lookbar ${summary.remaining !== null && summary.remaining < 0 ? "is-over" : ""}`} onClick={() => setLookOpen(true)} aria-haspopup="dialog">
-              <span className="lookbar__value num">{formatCHF(summary.productValue)}</span>
-              <span className="lookbar__state">
-                {summary.remaining === null
-                  ? "Budget festlegen"
-                  : summary.remaining < 0
-                    ? `${formatCHF(-summary.remaining)} über Budget`
-                    : `Rest ${formatCHF(summary.remaining)}`}
-              </span>
-              <Icon name="chevronRight" size={16} />
-            </button>
+            <div className="stage-bottom">
+              <button
+                ref={drawerOpener}
+                type="button"
+                className="btn btn--primary add-sheet-btn"
+                aria-controls="panel-galerie"
+                aria-expanded={drawerOpen}
+                onClick={() => setDrawerOpen(true)}
+              >
+                <Icon name="plus" /> Produkte
+              </button>
+              <button type="button" className={`lookbar ${summary.remaining !== null && summary.remaining < 0 ? "is-over" : ""}`} onClick={() => setLookOpen(true)} aria-haspopup="dialog">
+                <span className="lookbar__value num">{formatCHF(summary.productValue)}</span>
+                <span className="lookbar__state">
+                  {summary.remaining === null
+                    ? "Budget festlegen"
+                    : summary.remaining < 0
+                      ? `${formatCHF(-summary.remaining)} über Budget`
+                      : `Rest ${formatCHF(summary.remaining)}`}
+                </span>
+                <Icon name="chevronRight" size={16} />
+              </button>
+            </div>
           </div>
         </section>
 
         <aside id="panel-fenster" className="builder__side panel" aria-label="Teil, Budget und Look">
+          {budgetPanel("side")}
           {selItem && selProduct && (
             <section className="side-block" aria-labelledby="insp-title">
               <h2 id="insp-title" className="panel__title">
@@ -702,7 +713,7 @@ export function Builder() {
               {inspector("side")}
             </section>
           )}
-          {lookPanel("side")}
+          {lookPanel("side", false)}
         </aside>
       </div>
     </div>

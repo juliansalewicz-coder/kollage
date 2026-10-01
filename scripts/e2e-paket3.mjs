@@ -13,8 +13,9 @@ export async function paket3({ run, base, out, draft }) {
     await page.waitForTimeout(400);
     const d0 = await draft(page);
     const trench0 = d0.items.find((i) => i.productId === "trench");
-    // Replace the most expensive piece via the budget shortcut.
-    await page.getByRole("button", { name: "Günstigere Alternative zum teuersten Teil" }).click();
+    // Replace the trench from the selection toolbar.
+    await page.locator('.piece--edit[aria-label^="Trenchcoat"]').click();
+    await page.getByRole("toolbar", { name: "Ausgewähltes Teil" }).getByRole("button", { name: "Ersetzen" }).click();
     const dlg = page.locator("dialog.sheet[open]");
     await dlg.getByRole("heading", { name: "Teil ersetzen" }).waitFor();
     await page.screenshot({ path: `${out}/p3-replace-desktop.png` });
@@ -33,6 +34,20 @@ export async function paket3({ run, base, out, draft }) {
     if (d2.items.find((i) => i.uid === trench0.uid).productId !== "trench") throw new Error("undo did not restore");
     if (d2.budget !== 950) throw new Error("undo changed the budget");
     await page.getByRole("button", { name: "Wiederholen" }).click();
+    await page.locator(".budget__lines dt", { hasText: "Restbudget" }).first().waitFor();
+    // Saving suggestion: names a piece, opens the replace sheet for exactly that piece.
+    await page.fill("#side-budget", "600");
+    const tip = page.locator(".budget__cheaper").first();
+    await tip.waitFor();
+    const named = (await tip.locator("span").innerText()).split(":")[0].trim();
+    const box = await page.evaluate(() => document.querySelector(".builder__side").scrollWidth - document.querySelector(".builder__side").clientWidth);
+    if (box > 0) throw new Error("side panel overflows by " + box);
+    await tip.click();
+    await dlg.getByRole("heading", { name: "Teil ersetzen" }).waitFor();
+    const cur = await dlg.locator(".replace-current__title").innerText();
+    if (cur !== named) throw new Error(`suggestion named ${named}, sheet shows ${cur}`);
+    await dlg.getByRole("button", { name: "Schliessen" }).click();
+    await page.fill("#side-budget", "950");
     await page.locator(".budget__lines dt", { hasText: "Restbudget" }).first().waitFor();
     // Remember two products in the gallery.
     await page.locator(".product-cell", { hasText: "Boxy T-Shirt" }).first().locator(".fav").click();

@@ -113,3 +113,30 @@ export function mostExpensive(items: CanvasItem[]): CanvasItem | null {
   }
   return best;
 }
+
+export interface Saving {
+  item: CanvasItem;
+  product: Product;
+  /** Largest possible saving with a cheaper product of the same kind. */
+  saving: number;
+}
+
+/**
+ * The piece where a same-kind swap saves the most, e.g. boots for sneakers.
+ * Beats "most expensive piece" when that piece has no cheaper equivalent.
+ */
+export function bestSaving(items: CanvasItem[]): Saving | null {
+  let best: Saving | null = null;
+  const seen = new Set<string>();
+  for (const it of items) {
+    if (seen.has(it.productId)) continue;
+    seen.add(it.productId);
+    const product = getProduct(it.productId);
+    if (!product) continue;
+    const similar = alternatives(product.id).cheaper.filter((a) => a.similar);
+    if (!similar.length) continue;
+    const saving = round(-Math.min(...similar.map((a) => a.diff)));
+    if (!best || saving > best.saving) best = { item: it, product, saving };
+  }
+  return best;
+}

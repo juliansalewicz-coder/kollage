@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { alternatives, budgetSummary, mostExpensive } from "./budget";
+import { alternatives, bestSaving, budgetSummary, mostExpensive } from "./budget";
 import { getProduct, imageAspect } from "./catalog";
 import { replaceItem } from "./collage";
-import { lookup } from "./seed-looks";
+import { lookup, SEED_LOOKS } from "./seed-looks";
 import type { CanvasItem } from "./types";
 
 const item = (uid: string, productId: string, over: Partial<CanvasItem> = {}): CanvasItem => ({ uid, productId, x: 400, y: 500, w: 300, rotation: 7, z: 3, ...over });
@@ -73,5 +73,24 @@ describe("cheaper alternatives", () => {
 
   it("finds the most expensive piece", () => {
     expect(mostExpensive([item("a", "t-weiss"), item("b", "mantel-navy"), item("c", "jeans-hell")])?.productId).toBe("mantel-navy");
+  });
+});
+
+describe("saving suggestion", () => {
+  it("points to the piece with the largest same-kind saving, not just the most expensive one", () => {
+    const look = SEED_LOOKS.find((l) => l.id === "herbst-in-bern")!;
+    const best = bestSaving(look.items)!;
+    expect(best).not.toBeNull();
+    const savings = [...new Set(look.items.map((i) => i.productId))].map((id) => {
+      const similar = alternatives(id).cheaper.filter((a) => a.similar);
+      return similar.length ? -Math.min(...similar.map((a) => a.diff)) : 0;
+    });
+    expect(best.saving).toBeCloseTo(Math.max(...savings), 2);
+    // The suggested swap really exists and is of the same kind.
+    expect(alternatives(best.product.id).cheaper.some((a) => a.similar && Math.abs(a.diff + best.saving) < 0.001)).toBe(true);
+  });
+
+  it("returns null for an empty canvas", () => {
+    expect(bestSaving([])).toBeNull();
   });
 });

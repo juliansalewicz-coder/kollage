@@ -298,8 +298,11 @@ main:focus {
 .tabs-scroll {
   flex-wrap: nowrap;
   overflow-x: auto;
-  padding: 2px 2px 6px;
+  padding: 2px 28px 6px 2px;
   margin: 0 -2px 6px;
+  /* Fade at the edge shows that more chips are hidden to the right. */
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
 }
 
 .chip {
@@ -1797,7 +1800,41 @@ input[type="range"] {
   display: grid;
   gap: 12px;
   justify-items: center;
-  --stage-w: min(100%, calc((100vh - 230px) * 0.8));
+  /* Canvas plus selection toolbar fit one desktop screen. */
+  --stage-w: min(100%, calc((100vh - 330px) * 0.8));
+}
+
+.stage-dock {
+  display: contents;
+}
+
+/* Desktop: one toolbar row under the canvas; the side panel already names the piece. */
+@media (min-width: 1024px) {
+  .piece-tools:not(.is-idle) {
+    flex-wrap: nowrap;
+    justify-content: center;
+  }
+  .piece-tools:not(.is-idle) .piece-tools__name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .piece-tools:not(.is-idle) .tool {
+    min-width: 0;
+    flex: 1 1 0;
+  }
+  .piece-tools:not(.is-idle) .tool__label {
+    font-size: 12px;
+    white-space: nowrap;
+  }
+}
+
+/* In the builder, toasts appear at the top so they never cover the tools. */
+body:has(.stage-dock) .toaster {
+  top: 68px;
+  bottom: auto;
 }
 
 .builder__stage > .window,
@@ -2114,11 +2151,12 @@ input[type="range"] {
 }
 
 .mini-row.is-selected {
-  background: var(--accent-soft);
+  background: var(--bg-2);
+  box-shadow: inset 0 0 0 1.5px var(--ink);
 }
 
 .mini-row.is-selected .tag-num {
-  background: var(--accent-strong);
+  background: var(--ink);
   color: #fff;
 }
 
@@ -3026,7 +3064,7 @@ input[type="range"] {
 .entry__count {
   margin-top: 6px;
   font-size: 13px;
-  color: var(--accent-strong);
+  color: var(--muted);
   font-weight: 500;
 }
 
@@ -3144,16 +3182,16 @@ input[type="range"] {
 
 .look-page__tip {
   margin-top: 14px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: var(--accent-soft);
+  padding: 10px 14px;
+  border-left: 2px solid var(--accent);
+  background: transparent;
   font-size: 15px;
   color: var(--ink-2);
   max-width: 52ch;
 }
 
 .look-page__tip strong {
-  color: var(--accent-strong);
+  color: var(--ink);
   font-weight: 600;
 }
 
@@ -3467,8 +3505,40 @@ input[type="range"] {
   line-height: 1.45;
 }
 
+/* Saving suggestion: names the piece and the amount, wraps instead of widening the panel. */
 .budget__cheaper {
-  justify-self: start;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 10px;
+  align-items: start;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--bg-2);
+  color: var(--ink);
+  text-align: left;
+  font-size: 14px;
+  line-height: 1.35;
+  transition: background-color 160ms var(--ease);
+}
+
+.budget__cheaper:hover {
+  background: #ebebef;
+}
+
+.budget__cheaper svg {
+  grid-row: span 2;
+  margin-top: 1px;
+}
+
+.budget__cheaper strong {
+  font-weight: 600;
+}
+
+.budget__cheaper span {
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
 }
 
 /* Replace sheet */
@@ -3708,4 +3778,72 @@ input[type="range"] {
 .alt-row__similar {
   color: var(--ink-2);
   font-weight: 500;
+}
+
+/* Phone and tablet: sticky dock with selection tools, products and budget. */
+@media (max-width: 1023px) {
+  .stage-dock {
+    position: sticky;
+    bottom: 0;
+    z-index: 6;
+    display: grid;
+    justify-items: center;
+    gap: 8px;
+    justify-self: stretch;
+    margin: 0 calc(-1 * var(--gutter));
+    padding: 8px var(--gutter) calc(10px + env(safe-area-inset-bottom));
+    background: rgba(245, 245, 247, 0.88);
+    -webkit-backdrop-filter: saturate(180%) blur(18px);
+    backdrop-filter: saturate(180%) blur(18px);
+    border-top: 1px solid var(--line);
+  }
+  .stage-dock .piece-tools {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    min-height: 0;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .stage-dock .piece-tools .tool {
+    min-height: 50px;
+  }
+  .stage-dock .piece-tools__name {
+    padding: 0 4px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .stage-dock .piece-tools__hint {
+    font-size: 13px;
+  }
+  .stage-dock .piece-tools.is-idle {
+    min-height: 0;
+    padding: 2px 0 0;
+  }
+  .tool--minor {
+    display: none !important;
+  }
+  .stage-dock .lookbar {
+    background: var(--bg);
+  }
+  .stage-dock .piece-tools,
+  .stage-dock .stage-bottom {
+    width: min(100%, 560px);
+  }
+}
+
+@media (max-width: 767px) {
+  body:has(.stage-dock) .toaster {
+    top: 104px;
+  }
+  /* Outfit, selection tools and products fit one phone screen (390 x 844). */
+  .builder__stage {
+    --stage-w: min(100%, 560px, max(280px, calc((100svh - 460px) * 0.8)));
+  }
+}
+
+/* Mobile nav has two rows: keep focused elements clear of it. */
+@media (max-width: 767px) {
+  html {
+    scroll-padding-top: 108px;
+  }
 }

@@ -15,7 +15,8 @@ export function BudgetBox({
   summary: BudgetSummary;
   idPrefix: string;
   onBudget: (value: number | null) => void;
-  onCheaper: (() => void) | null;
+  /** Best same-kind swap on the canvas, shown when over budget. */
+  onCheaper: { title: string; saving: number; run: () => void } | null;
 }) {
   const [text, setText] = useState(summary.budget === null ? "" : String(summary.budget));
   useEffect(() => {
@@ -78,8 +79,12 @@ export function BudgetBox({
         {dupes > 0 && ` ${dupes === 1 ? "Ein Teil liegt" : `${dupes} Teile liegen`} mehrfach auf der Leinwand und ${dupes === 1 ? "zählt" : "zählen"} nur einmal.`}
       </p>
       {over && onCheaper && (
-        <button type="button" className="btn btn--ghost btn--sm budget__cheaper" onClick={onCheaper}>
-          <Icon name="swap" size={16} /> Günstigere Alternative zum teuersten Teil
+        <button type="button" className="budget__cheaper" onClick={onCheaper.run}>
+          <Icon name="swap" size={18} />
+          <strong>Günstigere Alternative wählen</strong>
+          <span>
+            {onCheaper.title}: bis {formatCHF(onCheaper.saving)} sparen
+          </span>
         </button>
       )}
     </div>

@@ -29,8 +29,11 @@ export function DiscoverView() {
   const own = useLooks();
 
   const q = params.get("q") ?? "";
-  const occasion = (params.get("anlass") ?? "") as Occasion | "";
-  const budget = params.get("budget") ?? "";
+  // Unknown values from hand-edited or old links are ignored instead of shown as raw chips.
+  const rawOccasion = params.get("anlass") ?? "";
+  const occasion = (OCCASIONS.some((o) => o.id === rawOccasion) ? rawOccasion : "") as Occasion | "";
+  const rawBudget = params.get("budget") ?? "";
+  const budget = Number(rawBudget) > 0 ? rawBudget : "";
   const sort = (params.get("sort") ?? "neu") as Sort;
   const [text, setText] = useState(q);
   useEffect(() => setText(q), [q]);

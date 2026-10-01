@@ -177,7 +177,7 @@ export function LookView({ look }: { look: ViewableLook }) {
                       href={offerHref(r.offer.id, look.id)}
                       target="_blank"
                       rel="sponsored nofollow noopener"
-                      className="btn btn--primary btn--sm"
+                      className="btn btn--secondary btn--sm"
                       onFocus={() => setLit(r.uid)}
                       onBlur={() => setLit(null)}
                     >
