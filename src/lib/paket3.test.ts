@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { alternatives, bestSaving, budgetSummary, mostExpensive } from "./budget";
-import { getProduct, imageAspect } from "./catalog";
+import { alternatives, bestSaving, budgetSummary, replaceEffect } from "./budget";
+import { bestOffer, getProduct, imageAspect, sortedOffers } from "./catalog";
 import { replaceItem } from "./collage";
 import { lookup, SEED_LOOKS } from "./seed-looks";
 import type { CanvasItem } from "./types";
@@ -70,10 +70,6 @@ describe("cheaper alternatives", () => {
     expect(others.every((a) => a.diff >= 0)).toBe(true);
     expect([...cheaper, ...others].some((a) => a.product.id === "trench")).toBe(false);
   });
-
-  it("finds the most expensive piece", () => {
-    expect(mostExpensive([item("a", "t-weiss"), item("b", "mantel-navy"), item("c", "jeans-hell")])?.productId).toBe("mantel-navy");
-  });
 });
 
 describe("saving suggestion", () => {
@@ -92,5 +88,50 @@ describe("saving suggestion", () => {
 
   it("returns null for an empty canvas", () => {
     expect(bestSaving([])).toBeNull();
+  });
+
+  // Audit finding A: a product placed twice counts once, so swapping one placement must not be sold as a saving.
+  it("counts duplicates: the suggested swap really lowers the look total", () => {
+    const items = [item("a", "trench"), item("b", "trench", { x: 700 })];
+    const before = budgetSummary(items, 100).productValue;
+    expect(before).toBe(289);
+    // One placement swapped: trench stays, the blazer is added, the total rises.
+    expect(replaceEffect(items, ["a"], "blazer-schwarz")).toBeGreaterThan(0);
+    const best = bestSaving(items)!;
+    expect(best.product.id).toBe("trench");
+    expect(best.placements).toBe(2);
+    expect(best.saving).toBeGreaterThan(0);
+    // Swapping both placements gives exactly the promised saving.
+    const cheapest = alternatives("trench").cheaper.filter((a) => a.similar)[0];
+    expect(-replaceEffect(items, ["a", "b"], cheapest.product.id)).toBeCloseTo(best.saving, 2);
+  });
+
+  it("never suggests a swap that does not lower the total", () => {
+    for (const look of SEED_LOOKS) {
+      const best = bestSaving(look.items);
+      if (!best) continue;
+      const uids = look.items.filter((i) => i.productId === best.product.id).map((i) => i.uid);
+      const options = alternatives(best.product.id).cheaper.filter((a) => a.similar);
+      const real = Math.max(...options.map((a) => -replaceEffect(look.items, uids, a.product.id)));
+      expect(real).toBeCloseTo(best.saving, 2);
+      expect(real).toBeGreaterThan(0);
+    }
+  });
+});
+
+// Audit finding D: one offer order everywhere, available offers before cheaper sold-out ones.
+describe("offer order", () => {
+  it("prefers an available offer over a cheaper sold-out one", () => {
+    const base = getProduct("trench")!;
+    const product = {
+      ...base,
+      offers: [
+        { ...base.offers[0], id: "a", priceCHF: 99, inStock: false },
+        { ...base.offers[0], id: "b", priceCHF: 150, inStock: true },
+        { ...base.offers[0], id: "c", priceCHF: 120, inStock: true },
+      ],
+    };
+    expect(sortedOffers(product).map((o) => o.id)).toEqual(["c", "b", "a"]);
+    expect(bestOffer(product).id).toBe("c");
   });
 });

@@ -9,7 +9,14 @@ export const metadata: Metadata = {
 
 export default function BuilderPage() {
   return (
-    <Suspense>
+    // The fallback keeps the builder's height, so nothing below jumps when it appears.
+    <Suspense
+      fallback={
+        <div className="builder builder--loading" aria-busy="true">
+          <p className="canvas-loading">Builder wird geladen …</p>
+        </div>
+      }
+    >
       <Builder />
     </Suspense>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { getShop } from "@/lib/catalog";
+import { getShop, sortedOffers } from "@/lib/catalog";
 import { formatCHF } from "@/lib/format";
 import { offerHref, shippingText } from "@/lib/look";
 import type { Product } from "@/lib/types";
@@ -10,8 +10,10 @@ import { Icon } from "./Icon";
 
 /** Product card used in the look-page sheet: price, shop, delivery and the offer link. */
 export function ProductDetails({ product, lookId, number, onShowInList }: { product: Product; lookId: string | null; number?: number; onShowInList?: () => void }) {
-  const offers = [...product.offers].sort((a, b) => a.priceCHF - b.priceCHF);
+  // Same order as the gallery and the look page: available first, then by price.
+  const offers = sortedOffers(product);
   const best = offers[0];
+  const soldOut = !best.inStock;
   const shop = getShop(best.shopId);
   return (
     <div className="pdetail">
@@ -24,6 +26,7 @@ export function ProductDetails({ product, lookId, number, onShowInList }: { prod
           <span className="pdetail__demo">Demo-Artikel</span>
         </p>
         <p className="pdetail__price num">{formatCHF(best.priceCHF)}</p>
+        {soldOut && <p className="pdetail__soldout">Derzeit bei keinem Shop verfügbar</p>}
         <p className="pdetail__shop">
           {shop.name} · Lieferung CH {shop.deliveryDays}
           <br />
@@ -45,7 +48,7 @@ export function ProductDetails({ product, lookId, number, onShowInList }: { prod
                 return (
                   <li key={o.id}>
                     <span>
-                      {s.name} · {s.deliveryDays}
+                      {s.name} · {o.inStock ? s.deliveryDays : "ausverkauft"}
                     </span>
                     <span className="num">{formatCHF(o.priceCHF)}</span>
                     <a href={offerHref(o.id, lookId)} target="_blank" rel="sponsored nofollow noopener" className="link-arrow">

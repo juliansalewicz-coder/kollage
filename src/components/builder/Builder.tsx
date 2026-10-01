@@ -25,6 +25,7 @@ import { requireLogin, toast } from "@/lib/events";
 import { formatCHF, pieces } from "@/lib/format";
 import { distinctCount, pieceRows } from "@/lib/look";
 import { BACKDROPS, getSeedLook, lookup, OCCASIONS } from "@/lib/seed-looks";
+import { COMPACT_QUERY, isolate } from "@/lib/modal";
 import { decodeLook } from "@/lib/share";
 import {
   archiveDraft,
@@ -64,11 +65,20 @@ export function Builder() {
   const [selected, setSelected] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerOpener = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
+  /* Phones: the open product drawer is modal. Background stays visible but cannot be reached. */
+  useEffect(() => {
+    if (!drawerOpen || !drawerRef.current || !window.matchMedia(COMPACT_QUERY).matches) return;
+    const scrim = drawerRef.current.parentElement?.querySelector(".sheet-scrim");
+    return isolate(drawerRef.current, scrim ? [scrim] : []);
+  }, [drawerOpen]);
   const [replaceFor, setReplaceFor] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [lookOpen, setLookOpen] = useState(false);
   /** Phones: title, saving and publishing live in one sheet instead of a tall bar above the canvas. */
   const [saveOpen, setSaveOpen] = useState(false);
+  /** False until the stored draft and the URL (?look=, ?d=, ...) are applied. */
+  const [booted, setBooted] = useState(false);
   /* Motion feedback. Pieces added while the phone drawer covers the canvas animate when it closes. */
   const [fx, setFx] = useState<CanvasFx | null>(null);
   const queuedAdds = useRef<string[]>([]);
@@ -122,9 +132,22 @@ export function Builder() {
     apply(p.next, p.archiveId);
   }
 
+  /**
+   * Removes ?look= etc. once applied. Native history keeps the builder mounted; a router
+   * navigation re-suspended the page and showed the empty canvas for a moment.
+   */
+  function clearQuery() {
+    window.history.replaceState(window.history.state, "", "/builder");
+  }
+
   /* Open a look from ?look= (remix), ?edit= (own look), ?d= (shared), ?entwurf= (archived), ?neu, ?add. */
   useEffect(() => {
     if (!ready) return;
+    // On a direct visit the search params can arrive one render after the page: wait for them
+    // instead of showing the empty canvas (and loading its template images) in between.
+    if (!params.toString() && window.location.search.length > 1) return;
+    // From here on the canvas shows the real state (stored draft or the requested look), never the start templates first.
+    setBooted(true);
     const lookParam = params.get("look");
     const editParam = params.get("edit");
     const data = params.get("d");
@@ -147,7 +170,7 @@ export function Builder() {
         setSelected(uid);
         toast(`${p.title} liegt jetzt auf deiner Leinwand`);
       }
-      router.replace("/builder", { scroll: false });
+      clearQuery();
       return;
     }
     let next: Snapshot | null = null;
@@ -190,7 +213,7 @@ export function Builder() {
       label = "einen neuen, leeren Look";
     }
     if (next) openGuarded(next, label, archiveId);
-    router.replace("/builder", { scroll: false });
+    clearQuery();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, params, commit, live, router]);
 
@@ -230,7 +253,8 @@ export function Builder() {
 
   function closeDrawer() {
     setDrawerOpen(false);
-    drawerOpener.current?.focus();
+    // After the background is interactive again (the modal effect cleans up after this render).
+    requestAnimationFrame(() => drawerOpener.current?.focus());
     if (queuedAdds.current.length) {
       setFx({ uids: queuedAdds.current, kind: "add", key: Date.now() });
       queuedAdds.current = [];
@@ -262,18 +286,19 @@ export function Builder() {
 
   const edit = (fn: (xs: typeof items) => typeof items) => commit((s) => ({ ...s, items: fn(s.items) }));
 
-  function replaceWith(productId: string) {
+  /** Swaps one placement, or every placement of the same product (one undo step either way). */
+  function replaceWith(productId: string, uids: string[]) {
     const uid = replaceFor;
     if (!uid) return;
     const before = live.current.items.find((i) => i.uid === uid);
     const oldP = before ? getProduct(before.productId) : undefined;
     const newP = getProduct(productId);
-    edit((xs) => replaceItem(xs, uid, productId, lookup));
-    if (before) setFx({ uids: [uid], kind: "swap", from: before.productId, key: Date.now() });
+    edit((xs) => uids.reduce((acc, u) => replaceItem(acc, u, productId, lookup), xs));
+    if (before) setFx({ uids, kind: "swap", from: before.productId, key: Date.now() });
     setReplaceFor(null);
     setMoreOpen(false);
     setSelected(uid);
-    if (oldP && newP) toast(`${oldP.title} ersetzt durch ${newP.title}. «Rückgängig» stellt es wieder her.`);
+    if (oldP && newP) toast(`${uids.length > 1 ? `${uids.length}× ` : ""}${oldP.title} ersetzt durch ${newP.title}. «Rückgängig» stellt es wieder her.`);
   }
 
   function persist(status?: LookStatus): { look: Look; persisted: boolean } {
@@ -424,7 +449,7 @@ export function Builder() {
             return (
               <li key={id}>
                 <Link href={`/builder?look=${id}`} className="canvas-start__item">
-                  <LookWindow items={l.items} backdrop={l.backdrop} frame="thin" />
+                  <LookWindow items={l.items} backdrop={l.backdrop} frame="thin" width={{ phoneVw: 26, px: 96 }} />
                   {l.title}
                 </Link>
               </li>
@@ -679,7 +704,8 @@ export function Builder() {
       </Sheet>
 
       <ReplaceSheet
-        productId={replaceItemNow?.productId ?? null}
+        items={items}
+        uid={replaceItemNow?.uid ?? null}
         open={Boolean(replaceItemNow)}
         onClose={() => setReplaceFor(null)}
         onPick={replaceWith}
@@ -696,14 +722,17 @@ export function Builder() {
       <div className="builder__body">
         <div className="sheet-scrim" aria-hidden="true" onClick={closeDrawer} />
         <aside
+          ref={drawerRef}
           id="panel-galerie"
           className="builder__gallery panel"
           aria-label="Produkte"
+          role={drawerOpen ? "dialog" : undefined}
+          aria-modal={drawerOpen ? true : undefined}
           onKeyDown={(e) => {
             if (e.key === "Escape" && drawerOpen) closeDrawer();
           }}
         >
-          <Gallery onAdd={add} counts={counts} onClose={closeDrawer} open={drawerOpen} />
+          <Gallery onAdd={add} counts={counts} onClose={closeDrawer} open={drawerOpen} status={drawerOpen ? announce : ""} />
         </aside>
 
         <section className="builder__stage" aria-label="Leinwand bearbeiten">
@@ -736,7 +765,7 @@ export function Builder() {
             checkpoint={checkpoint}
             commit={commit}
             onDropProduct={dropAt}
-            emptyState={emptyState}
+            emptyState={booted ? emptyState : <p className="canvas-loading">Look wird geladen …</p>}
             fx={fx}
           />
 

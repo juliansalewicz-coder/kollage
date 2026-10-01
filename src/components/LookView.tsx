@@ -75,7 +75,8 @@ export function LookView({ look }: { look: ViewableLook }) {
             highlight={lit}
             onHighlight={setLit}
             label={`Collage «${look.title}» mit ${rows.length} nummerierten Teilen. Teil antippen für Details.`}
-            pieceSizes="(max-width: 767px) 40vw, 260px"
+            width={{ phoneVw: 92, px: 620 }}
+            priority
             onPieceActivate={setOpenUid}
             activePiece={openUid}
           />

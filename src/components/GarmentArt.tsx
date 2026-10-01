@@ -9,18 +9,22 @@ function isCircle(layer: Layer): layer is CircleLayer {
 /** Cut-out product image: authored demo illustration, or the retailer image for real offers. */
 /**
  * `sizes` is the rendered width hint; renders ship a 360 px and a 900 px variant.
+ * Images load lazily unless `priority` is set: only what is on the first screen
+ * (start page outfit, look page collage, builder canvas) should compete for bandwidth.
  */
 export function ProductImage({
   product,
   className,
-  lazy = false,
+  priority = false,
   sizes = "180px",
 }: {
   product: Product;
   className?: string;
-  lazy?: boolean;
+  priority?: boolean;
   sizes?: string;
 }) {
+  // Measured on a throttled phone: fetchpriority="high" on several pieces delayed CSS and the first paint, so priority means eager only.
+  const loading = priority ? "eager" : "lazy";
   const img = product.image;
   if (img.type === "render") {
     const small = img.src.replace("/products/", "/products/sm/");
@@ -36,14 +40,14 @@ export function ProductImage({
         height={img.height}
         alt=""
         draggable={false}
-        loading={lazy ? "lazy" : "eager"}
+        loading={loading}
         decoding="async"
       />
     );
   }
   if (img.type === "retailer") {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img className={className} src={img.src} width={img.width} height={img.height} alt="" draggable={false} loading={lazy ? "lazy" : "eager"} decoding="async" />;
+    return <img className={className} src={img.src} width={img.width} height={img.height} alt="" draggable={false} loading={loading} decoding="async" />;
   }
   return <GarmentSvg product={product} className={className} />;
 }

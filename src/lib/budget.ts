@@ -98,32 +98,29 @@ export function alternatives(productId: string): { cheaper: Alternative[]; other
   return { cheaper: all.filter((a) => a.diff < 0), others: all.filter((a) => a.diff >= 0) };
 }
 
-/** The most expensive distinct product on the canvas, as a starting point for saving money. */
-export function mostExpensive(items: CanvasItem[]): CanvasItem | null {
-  let best: CanvasItem | null = null;
-  let max = -1;
-  for (const it of items) {
-    const p = getProduct(it.productId);
-    if (!p) continue;
-    const price = bestOffer(p).priceCHF;
-    if (price > max) {
-      max = price;
-      best = it;
-    }
-  }
-  return best;
+/** Change of the look's product value (new minus old) if the given placements show `productId` instead. */
+export function replaceEffect(items: CanvasItem[], uids: string[], productId: string): number {
+  const before = budgetSummary(items, null).productValue;
+  const after = budgetSummary(
+    items.map((it) => (uids.includes(it.uid) ? { ...it, productId } : it)),
+    null,
+  ).productValue;
+  return round(after - before);
 }
 
 export interface Saving {
   item: CanvasItem;
   product: Product;
-  /** Largest possible saving with a cheaper product of the same kind. */
+  /** How much the look total really drops when every placement of `product` is swapped. */
   saving: number;
+  /** How often the product lies on the canvas; all placements are swapped together. */
+  placements: number;
 }
 
 /**
- * The piece where a same-kind swap saves the most, e.g. boots for sneakers.
- * Beats "most expensive piece" when that piece has no cheaper equivalent.
+ * The piece where a same-kind swap lowers the look total the most, e.g. boots for sneakers.
+ * Works on the whole look: a product placed twice counts once, so all its placements are
+ * swapped together, and a suggestion only appears when the total really goes down.
  */
 export function bestSaving(items: CanvasItem[]): Saving | null {
   let best: Saving | null = null;
@@ -133,10 +130,11 @@ export function bestSaving(items: CanvasItem[]): Saving | null {
     seen.add(it.productId);
     const product = getProduct(it.productId);
     if (!product) continue;
-    const similar = alternatives(product.id).cheaper.filter((a) => a.similar);
-    if (!similar.length) continue;
-    const saving = round(-Math.min(...similar.map((a) => a.diff)));
-    if (!best || saving > best.saving) best = { item: it, product, saving };
+    const uids = items.filter((i) => i.productId === it.productId).map((i) => i.uid);
+    for (const alt of alternatives(product.id).cheaper.filter((a) => a.similar)) {
+      const saving = round(-replaceEffect(items, uids, alt.product.id));
+      if (saving > 0 && (!best || saving > best.saving)) best = { item: it, product, saving, placements: uids.length };
+    }
   }
   return best;
 }

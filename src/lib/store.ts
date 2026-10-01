@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import type { Draft, Look, Session } from "./types";
+import * as valid from "./validate";
 
 /**
  * MVP persistence: everything lives in this browser's localStorage.
@@ -60,7 +61,8 @@ function readRaw(key: Key): string | null {
   }
 }
 
-function read<T>(key: Key, fallback: T): T {
+/** Reads, parses and checks the shape. Broken data never reaches the UI; the next write replaces it. */
+function read<T>(key: Key, fallback: T, check: (v: unknown) => T): T {
   if (memory.has(key)) return memory.get(key) as T;
   const raw = readRaw(key);
   const hit = cache.get(key);
@@ -68,7 +70,7 @@ function read<T>(key: Key, fallback: T): T {
   let value: T = fallback;
   if (raw) {
     try {
-      value = JSON.parse(raw) as T;
+      value = check(JSON.parse(raw)) ?? fallback;
     } catch {
       value = fallback;
     }
@@ -124,7 +126,7 @@ export function probeStorage(): StorageStatus {
 /* ---------- session ---------- */
 
 export function getSession(): Session | null {
-  return read<Session | null>(KEYS.session, null);
+  return read<Session | null>(KEYS.session, null, valid.session);
 }
 
 export function signIn(session: Session): boolean {
@@ -138,7 +140,7 @@ export function signOut() {
 /* ---------- looks ---------- */
 
 export function getLooks(): Look[] {
-  return read<Look[]>(KEYS.looks, EMPTY_LOOKS);
+  return read<Look[]>(KEYS.looks, EMPTY_LOOKS, valid.looks);
 }
 
 export function upsertLook(look: Look): boolean {
@@ -170,7 +172,7 @@ export function newLookId(title: string): string {
 /* ---------- draft ---------- */
 
 export function getDraft(): Draft | null {
-  return read<Draft | null>(KEYS.draft, null);
+  return read<Draft | null>(KEYS.draft, null, valid.draft);
 }
 
 export function setDraft(draft: Draft | null): boolean {
@@ -188,7 +190,7 @@ const EMPTY_ARCHIVE: ArchivedDraft[] = [];
 const ARCHIVE_LIMIT = 12;
 
 export function getArchivedDrafts(): ArchivedDraft[] {
-  return read<ArchivedDraft[]>(KEYS.archive, EMPTY_ARCHIVE);
+  return read<ArchivedDraft[]>(KEYS.archive, EMPTY_ARCHIVE, valid.archive);
 }
 
 export function archiveDraft(draft: Draft): { entry: ArchivedDraft; persisted: boolean } {
@@ -218,7 +220,7 @@ export interface Favorites {
 const EMPTY_FAVS: Favorites = { products: [], looks: [] };
 
 export function getFavorites(): Favorites {
-  return read<Favorites>(KEYS.favorites, EMPTY_FAVS);
+  return read<Favorites>(KEYS.favorites, EMPTY_FAVS, valid.favorites);
 }
 
 export function toggleFavorite(kind: keyof Favorites, id: string): { active: boolean; persisted: boolean } {

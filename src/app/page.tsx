@@ -56,7 +56,7 @@ export default function HomePage() {
             {entries.map((e) => (
               <li key={e.id}>
                 <Link href={e.href} className="entry">
-                  <LookWindow items={e.look.items} backdrop={e.look.backdrop} frame="thin" className="entry__window" />
+                  <LookWindow items={e.look.items} backdrop={e.look.backdrop} frame="thin" className="entry__window" width={{ phoneVw: 45, px: 290 }} />
                   <span className="entry__text">
                     <span className="entry__label">{e.label}</span>
                     <span className="entry__line">{e.line}</span>

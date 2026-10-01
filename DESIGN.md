@@ -57,7 +57,7 @@ Poppy (accent) rules: it marks **what is yours or what is new**, never status.
 - `--space-related: clamp(40px, 5vw, 64px)` between blocks that belong together (hero and «Wofür ziehst du dich an?»).
 - `--space-section: clamp(64px, 8vw, 104px)` before a new chapter. A new chapter also changes surface (white to `--bg-2`), so the tint does the separating, not extra white space.
 - Content width `--max: 1200px`, side gutter `--gutter: clamp(20px, 4vw, 40px)`.
-- Start page hero: the copy column is vertically centred against the outfit; the outfit and its main action fit the first screen at 1440×900, 390×844 and 360×780 (collage width derived from `100svh`).
+- Start page hero: the copy column is vertically centred against the outfit; the outfit and its main action fit the first screen at 1440×900, 390×844, 360×780 and 360×640 (collage width derived from `100svh`). On short phones (height ≤ 720px) the explanation moves below the action.
 
 ## Product and look presentation
 
@@ -68,6 +68,7 @@ Poppy (accent) rules: it marks **what is yours or what is new**, never status.
 - Piece numbers follow the shopping list: tops, bottoms, shoes, bags, accessories; the number sits on the garment (upper middle), so it is never hidden by an overlapping piece.
 - Start page: no numbers at rest. Pointing at or focusing a piece shows a dark label with name and price; tap or Enter opens price and shop.
 - Product thumbnails: contained image on `--bg-2`, radius 12–14px.
+- Image loading: everything is `loading="lazy"` except the collage on the first screen (start page outfit, look page collage, builder canvas: `priority`, loaded eagerly; no `fetchpriority="high"`, which delayed the first paint in the throttled measurement). Each piece gets a `sizes` value from its width on the canvas, so small accessories never pull the 900 px file. The phone product drawer builds its grid only after it was opened once.
 
 ## Buttons, selection, feedback
 
@@ -97,7 +98,9 @@ Never promise accounts, sync or public visibility while sign-in is the local dem
 - Desk background: `--bg-2` with a 20px dot grid. Panels white, radius 18px.
 - Desktop (≥1024px): bar (title, status with one-line explanation, two save actions), three columns (products 300px, canvas, side panel 280px). The canvas plus its one-row toolbar fit 1440×900. Side panel order: Budget, selected piece, pieces, look details.
 - Phone (<1024px): one compact bar (title and status as a button, undo, redo, «Speichern») opens the «Look speichern» sheet with title, save, publish and look details. A sticky dock under the canvas holds the selection tools (Ersetzen, Merken, Drehen, Entfernen, Mehr) or, with nothing selected, Anordnen and Leeren, plus «Produkte» and the budget bar.
-- The product drawer does not focus the search field on touch screens (the keyboard would cover the products).
+- The product drawer does not focus the search field on touch screens (the keyboard would cover the products). While it is open it is modal: everything behind it is `inert`, Escape closes it and focus returns to «Produkte».
+- Loading: the route fallback and the canvas say «… wird geladen» in the space the builder will take; the empty-canvas templates only appear when the canvas is really empty, never while a requested look is still arriving.
+- Saving suggestion and replace sheet judge alternatives by the change of the whole look total («Look −60.00»), so duplicates and pieces already in the look are counted correctly.
 
 ## Motion
 

@@ -30,7 +30,8 @@ export function FeaturedLook({ look }: { look: Look }) {
         onPieceActivate={setOpenUid}
         activePiece={openUid}
         label={`Look «${look.title}». Teil auswählen für Preis und Shop.`}
-        pieceSizes="(max-width: 767px) 45vw, 280px"
+        width={{ phoneVw: 80, px: 560 }}
+        priority
         className="featured__window"
       />
       <figcaption className="featured__plate">

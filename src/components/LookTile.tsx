@@ -26,7 +26,7 @@ export function LookTile({
   return (
     <article className={`look-tile look-tile--${size}`}>
       <Link href={`/look/${look.id}`} className="look-tile__link">
-        <LookWindow items={look.items} backdrop={look.backdrop} frame="thin" />
+        <LookWindow items={look.items} backdrop={look.backdrop} frame="thin" width={{ phoneVw: 92, px: 390 }} />
         <div className="look-tile__caption">
           <H className="look-tile__title">{look.title}</H>
           <p className="look-tile__meta">

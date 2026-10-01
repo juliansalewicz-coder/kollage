@@ -61,6 +61,11 @@ export function BuilderCanvas({
   const [dropHover, setDropHover] = useState(false);
 
   const sorted = [...items].sort((a, b) => a.z - b.z);
+  // Canvas is about 90 % of a phone screen and at most 560 px wide on desktop.
+  const sizesFor = (it: CanvasItem) => {
+    const f = Math.min(1, it.w / CANVAS_W);
+    return `(max-width: 767px) ${Math.ceil(f * 92)}vw, ${Math.ceil(f * 560)}px`;
+  };
   const selItem = items.find((i) => i.uid === selected) ?? null;
   const selProduct = selItem ? getProduct(selItem.productId) : undefined;
   const selAspect = selProduct ? imageAspect(selProduct) : null;
@@ -243,11 +248,11 @@ export function BuilderCanvas({
             >
               {ghost && (
                 <span key={`g${effect!.key}`} className="piece__ghost" aria-hidden="true">
-                  <ProductImage product={ghost} className="piece__img" sizes="(max-width: 767px) 45vw, 340px" />
+                  <ProductImage product={ghost} className="piece__img" sizes={sizesFor(it)} priority />
                 </span>
               )}
               <span key={effect ? `n${effect.key}` : "n"} className="piece__inner">
-                <ProductImage product={product} className="piece__img" sizes="(max-width: 767px) 45vw, 340px" />
+                <ProductImage product={product} className="piece__img" sizes={sizesFor(it)} priority />
               </span>
             </div>
           );

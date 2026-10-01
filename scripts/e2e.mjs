@@ -6,6 +6,7 @@ import { paket1 } from "./e2e-paket1.mjs";
 import { paket2 } from "./e2e-paket2.mjs";
 import { paket3 } from "./e2e-paket3.mjs";
 import { review2 } from "./e2e-review2.mjs";
+import { audit } from "./e2e-audit.mjs";
 
 const out = process.argv[2] || "acceptance-out/e2e";
 const only = process.env.ONLY;
@@ -20,7 +21,8 @@ for (const channel of ["chrome", "msedge"]) {
 }
 let failed = 0;
 
-async function run(name, viewport, fn) {
+// Runtime errors fail a scenario. `allow` lists patterns for errors a scenario provokes on purpose.
+async function run(name, viewport, fn, { allow = [] } = {}) {
   if (only && !name.startsWith(only)) return;
   const mobile = viewport.width < 800;
   const ctx = await browser.newContext({ viewport, hasTouch: mobile, isMobile: mobile });
@@ -32,7 +34,9 @@ async function run(name, viewport, fn) {
   });
   try {
     await fn(page);
-    console.log(name, "OK", errors.length ? "console: " + errors.join(" | ") : "");
+    const unexpected = errors.filter((e) => !allow.some((re) => re.test(e)));
+    if (unexpected.length) throw new Error("runtime error: " + unexpected.join(" | "));
+    console.log(name, "OK", errors.length ? "(expected: " + errors.length + " provoked errors)" : "");
   } catch (e) {
     failed++;
     console.log(name, "FAIL", e.message.split("\n")[0], errors.join(" | "));
@@ -190,6 +194,7 @@ await paket1({ run, base, out, draft });
 await paket2({ run, base, out, draft });
 await paket3({ run, base, out, draft });
 await review2({ run, base, out, draft });
+await audit({ run, base, out, draft });
 
 await browser.close();
 process.exit(failed ? 1 : 0);
