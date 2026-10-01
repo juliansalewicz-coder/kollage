@@ -26,6 +26,16 @@ node scripts/e2e.mjs   # End-to-End-Smoke-Test gegen den laufenden Dev-Server (b
 | `/weiter/[offerId]` | Affiliate-Ausgang: echte Angebote leiten mit Sub-ID weiter, Demo-Angebote erklären den Ablauf |
 | `/hinweise` | Affiliate-Offenlegung, Demo-Hinweis, Datenschutz- und Impressum-Entwürfe |
 
+## Stand Pakete 1–3 (Branch `paket-1-3`)
+
+- **Kernablauf:** Speichern funktioniert auch bei blockiertem Browserspeicher (nur für die Sitzung, klar angezeigt). Vor dem Öffnen einer Vorlage, eines neuen oder geteilten Looks fragt der Builder nach: weiterarbeiten, Entwurf sichern oder verwerfen. Gesicherte Entwürfe stehen unter «Meine Looks».
+- **Look-Seite:** Teil in der Collage antippen öffnet Preis, Shop, Lieferung und Angebotslink (Desktop-Dialog, Handy-Bottom-Sheet, Tastatur).
+- **Gestaltung:** Wortmarke, Tinte + Mohnrot, Look-Namen in Serifenschrift, Startseite mit Outfit und Aktionen im ersten Blick, Stil-Einstiege (Alltag, Büro, Wochenende, unter CHF 500), Redaktions-Looks mit Styling-Tipps.
+- **Features:** Teil ersetzen (gleiche Art zuerst, dann Preis; ein Undo-Schritt), Favoriten für Produkte und Looks (Seite «Gemerkt»), persönliches Budget (Produktwert, Rest/Überschreitung, Versand getrennt, Duplikate zählen einmal), aktive Filter als Chips, kompakte Handy-Bedienung.
+
+Tests: `npm test` (27 Unit-Tests), `node scripts/e2e.mjs` (14 Browser-Szenarien inkl. Abnahme Paket 1–3 auf Desktop und Handy).
+Produktions-Build neben laufendem Dev-Server: `NEXT_DIST_DIR=.next-build npx next build`.
+
 ## Builder-Funktionen
 
 - Teil antippen oder in die Leinwand ziehen (Desktop), Ablage in Moodboard-Zonen je Kategorie. Auf Mobile öffnet «Produkte hinzufügen» eine ausziehbare Produktauswahl.
