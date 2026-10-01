@@ -19,7 +19,8 @@ export function LookWindow({
   onHighlight,
   className = "",
   frame = "full",
-  pieceSizes = "160px",
+  width = { phoneVw: 45, px: 300 },
+  priority = false,
   onPieceActivate,
   activePiece = null,
   labels = false,
@@ -32,7 +33,10 @@ export function LookWindow({
   onHighlight?: (uid: string | null) => void;
   className?: string;
   frame?: "full" | "thin";
-  pieceSizes?: string;
+  /** Rendered width of the whole collage: share of the phone viewport and desktop pixels. Sets each piece's `sizes`. */
+  width?: { phoneVw: number; px: number };
+  /** Load the pieces first (collage on the first screen). */
+  priority?: boolean;
   /** Makes every piece a button (look page only; never inside a link). */
   onPieceActivate?: (uid: string) => void;
   activePiece?: string | null;
@@ -41,6 +45,10 @@ export function LookWindow({
 }) {
   const numbers = tags ? numberPieces(items) : null;
   const sorted = [...items].sort((a, b) => a.z - b.z);
+  const sizesFor = (it: CanvasItem) => {
+    const f = Math.min(1, it.w / CANVAS_W);
+    return `(max-width: 767px) ${Math.ceil(f * width.phoneVw)}vw, ${Math.ceil(f * width.px)}px`;
+  };
   return (
     <div className={`window window--${frame} ${highlight ? "has-highlight" : ""} ${className}`} data-backdrop={backdrop}>
       <div className="window__glass" role={label ? (onPieceActivate ? "group" : "img") : undefined} aria-label={label}>
@@ -70,13 +78,13 @@ export function LookWindow({
                 aria-label={`${n ? `Teil ${n}: ` : ""}${product.title}, ${product.colorName}, ${formatCHF(bestOffer(product).priceCHF)}. Details öffnen`}
                 data-product={product.id}
               >
-                <ProductImage product={product} className="piece__img" sizes={pieceSizes} />
+                <ProductImage product={product} className="piece__img" sizes={sizesFor(it)} priority={priority} />
               </button>
             );
           }
           return (
             <div key={it.uid} className={cls} style={style} {...hover}>
-              <ProductImage product={product} className="piece__img" sizes={pieceSizes} />
+              <ProductImage product={product} className="piece__img" sizes={sizesFor(it)} priority={priority} />
             </div>
           );
         })}

@@ -132,10 +132,21 @@ export function findOffer(offerId: string): { product: Product; offer: Offer } |
 }
 
 /** Cheapest in-stock offer. */
+/**
+ * The one order for offers everywhere (gallery, look page, details, budget):
+ * available offers first, each group by price. `bestOffer` is its first entry.
+ */
+export function sortedOffers(product: Product): Offer[] {
+  return [...product.offers].sort((a, b) => Number(b.inStock) - Number(a.inStock) || a.priceCHF - b.priceCHF);
+}
+
 export function bestOffer(product: Product): Offer {
-  const inStock = product.offers.filter((o) => o.inStock);
-  const pool = inStock.length ? inStock : product.offers;
-  return pool.reduce((a, b) => (b.priceCHF < a.priceCHF ? b : a));
+  return sortedOffers(product)[0];
+}
+
+/** False when no shop has the product in stock. */
+export function isAvailable(product: Product): boolean {
+  return product.offers.some((o) => o.inStock);
 }
 
 export function imageAspect(product: Product): number {

@@ -88,7 +88,7 @@ export function BudgetBox({
           <Icon name="swap" size={18} />
           <strong>Günstigere Alternative wählen</strong>
           <span>
-            {onCheaper.title}: bis {formatCHF(onCheaper.saving)} sparen
+            {onCheaper.title}: Look bis {formatCHF(onCheaper.saving)} günstiger
           </span>
         </button>
       )}

@@ -20,7 +20,7 @@ export const EMPTY: Snapshot = { items: [], title: "", note: "", occasion: "allt
 function fromDraft(d: Draft | null): Snapshot {
   if (!d) return EMPTY;
   return {
-    items: d.items ?? [],
+    items: Array.isArray(d.items) ? d.items : [],
     title: d.title ?? "",
     note: d.note ?? "",
     occasion: d.occasion ?? "alltag",

@@ -105,7 +105,7 @@ describe("catalogue and money", () => {
     expect(findOffer(trench.offers[1].id)?.product.id).toBe("trench");
   });
 
-  it("totals each distinct product once and numbers tags in reading order", () => {
+  it("totals each distinct product once and numbers tags in shopping-list order", () => {
     const items: CanvasItem[] = [
       { uid: "a", productId: "t-weiss", x: 500, y: 300, w: 100, rotation: 0, z: 1 },
       { uid: "b", productId: "t-weiss", x: 200, y: 300, w: 100, rotation: 0, z: 2 },

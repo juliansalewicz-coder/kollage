@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { bestOffer, CATEGORIES, COLOR_FAMILIES, filterProducts, getShop, PRODUCTS } from "@/lib/catalog";
 import { formatCHF } from "@/lib/format";
+import { COMPACT_QUERY } from "@/lib/modal";
 import { useFavorites } from "@/lib/store";
 import type { Category, ColorFamily } from "@/lib/types";
 import { ActiveFilters, type ActiveFilter } from "../ActiveFilters";
@@ -24,11 +25,14 @@ export function Gallery({
   counts,
   onClose,
   open,
+  status = "",
 }: {
   onAdd: (productId: string) => void;
   counts: Map<string, number>;
   onClose: () => void;
   open: boolean;
+  /** Announcement while the phone drawer covers the canvas (the canvas live region is inert then). */
+  status?: string;
 }) {
   const searchRef = useRef<HTMLInputElement>(null);
   const headRef = useRef<HTMLHeadingElement>(null);
@@ -39,6 +43,11 @@ export function Gallery({
     else searchRef.current?.focus({ preventScroll: true });
   }, [open]);
   const favs = useFavorites();
+  // Phones: the product grid is only built once the drawer has been opened, so a closed drawer loads no images.
+  const [showGrid, setShowGrid] = useState(false);
+  useEffect(() => {
+    if (open || !window.matchMedia(COMPACT_QUERY).matches) setShowGrid(true);
+  }, [open]);
   const [scope, setScope] = useState<Scope>("alle");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<Category | "alle">("alle");
@@ -152,7 +161,11 @@ export function Gallery({
         <ActiveFilters filters={active} onReset={reset} />
       </div>
 
-      {results.length ? (
+      <p className="sr-only" aria-live="polite">
+        {status}
+      </p>
+
+      {!showGrid ? null : results.length ? (
         <ul className="product-grid">
           {results.map((p) => {
             const offer = bestOffer(p);
@@ -170,7 +183,7 @@ export function Gallery({
                   onClick={() => onAdd(p.id)}
                 >
                   <span className="product-card__stage">
-                    <ProductImage product={p} className="product-card__img" lazy sizes="120px" />
+                    <ProductImage product={p} className="product-card__img" sizes="(max-width: 1023px) 45vw, 120px" />
                     {n > 0 && <span className="product-card__in">Im Look{n > 1 ? ` ×${n}` : ""}</span>}
                   </span>
                   <span className="product-card__title">{p.title}</span>

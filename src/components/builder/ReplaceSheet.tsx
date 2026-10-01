@@ -1,37 +1,75 @@
 "use client";
 
-import { useState } from "react";
-import { alternatives, type Alternative } from "@/lib/budget";
+import { useEffect, useState } from "react";
+import { alternatives, replaceEffect } from "@/lib/budget";
 import { bestOffer, CATEGORIES, getProduct, getShop } from "@/lib/catalog";
 import { formatCHF } from "@/lib/format";
 import { useFavorites } from "@/lib/store";
+import type { CanvasItem, Product } from "@/lib/types";
 import { ProductImage } from "../GarmentArt";
 import { Icon } from "../Icon";
 import { Sheet } from "../Sheet";
 
-/** Swap the selected piece for another product of the same category. Cheaper ones first. */
-export function ReplaceSheet({ productId, open, onClose, onPick }: { productId: string | null; open: boolean; onClose: () => void; onPick: (productId: string) => void }) {
+interface Row {
+  product: Product;
+  price: number;
+  similar: boolean;
+  /** Change of the look total if this product is used: what the person really saves or pays. */
+  effect: number;
+}
+
+/**
+ * Swap the selected piece for another product of the same category. Rows are split by what
+ * happens to the look total, not by single prices, so duplicates and pieces already in the
+ * look are counted correctly.
+ */
+export function ReplaceSheet({
+  items,
+  uid,
+  open,
+  onClose,
+  onPick,
+}: {
+  items: CanvasItem[];
+  uid: string | null;
+  open: boolean;
+  onClose: () => void;
+  onPick: (productId: string, uids: string[]) => void;
+}) {
   const favs = useFavorites();
   const [onlyFavs, setOnlyFavs] = useState(false);
-  const current = productId ? getProduct(productId) : undefined;
-  if (!current) return <Sheet open={false} onClose={onClose} title="">{null}</Sheet>;
+  const [all, setAll] = useState(true);
+  const item = uid ? items.find((i) => i.uid === uid) : undefined;
+  const current = item ? getProduct(item.productId) : undefined;
+  useEffect(() => {
+    if (open) setAll(true);
+  }, [open]);
+  if (!item || !current) return <Sheet open={false} onClose={onClose} title="">{null}</Sheet>;
+
+  const sameProduct = items.filter((i) => i.productId === item.productId).map((i) => i.uid);
+  const twice = sameProduct.length > 1;
+  const uids = twice && all ? sameProduct : [item.uid];
   const { cheaper, others } = alternatives(current.id);
-  const keep = (a: Alternative) => !onlyFavs || favs.products.includes(a.product.id);
+  const rows: Row[] = [...cheaper, ...others]
+    .filter((a) => !onlyFavs || favs.products.includes(a.product.id))
+    .map((a) => ({ product: a.product, price: a.price, similar: a.similar, effect: replaceEffect(items, uids, a.product.id) }));
+  const down = rows.filter((r) => r.effect < 0);
+  const rest = rows.filter((r) => r.effect >= 0);
   const price = bestOffer(current).priceCHF;
   const catLabel = CATEGORIES.find((c) => c.id === current.category)?.label ?? "";
 
-  const row = (a: Alternative) => {
-    const shop = getShop(bestOffer(a.product).shopId);
-    const fav = favs.products.includes(a.product.id);
+  const row = (r: Row) => {
+    const shop = getShop(bestOffer(r.product).shopId);
+    const fav = favs.products.includes(r.product.id);
     return (
-      <li key={a.product.id}>
-        <button type="button" className="alt-row" onClick={() => onPick(a.product.id)}>
+      <li key={r.product.id}>
+        <button type="button" className="alt-row" onClick={() => onPick(r.product.id, uids)}>
           <span className="alt-row__thumb" aria-hidden="true">
-            <ProductImage product={a.product} className="alt-row__img" sizes="64px" />
+            <ProductImage product={r.product} className="alt-row__img" sizes="64px" />
           </span>
           <span className="alt-row__text">
             <span className="alt-row__title">
-              {a.product.title}
+              {r.product.title}
               {fav && (
                 <>
                   <Icon name="heartFilled" size={14} className="alt-row__fav" />
@@ -40,14 +78,14 @@ export function ReplaceSheet({ productId, open, onClose, onPick }: { productId: 
               )}
             </span>
             <span className="alt-row__meta">
-              {a.similar && <span className="alt-row__similar">Gleiche Art · </span>}
-              {a.product.colorName} · {shop.name.replace("Demo-Shop ", "")}
+              {r.similar && <span className="alt-row__similar">Gleiche Art · </span>}
+              {r.product.colorName} · {shop.name.replace("Demo-Shop ", "")}
             </span>
           </span>
           <span className="alt-row__price">
-            <span className="num">{formatCHF(a.price)}</span>
-            <span className={`alt-row__diff num ${a.diff < 0 ? "is-cheaper" : ""}`}>
-              {a.diff < 0 ? `−${formatCHF(-a.diff).replace("CHF ", "")}` : a.diff === 0 ? "gleich" : `+${formatCHF(a.diff).replace("CHF ", "")}`}
+            <span className="num">{formatCHF(r.price)}</span>
+            <span className={`alt-row__diff num ${r.effect < 0 ? "is-cheaper" : ""}`}>
+              {r.effect < 0 ? `Look −${formatCHF(-r.effect).replace("CHF ", "")}` : r.effect === 0 ? "Look gleich" : `Look +${formatCHF(r.effect).replace("CHF ", "")}`}
             </span>
           </span>
           <span className="sr-only">, ersetzt {current.title}</span>
@@ -55,9 +93,6 @@ export function ReplaceSheet({ productId, open, onClose, onPick }: { productId: 
       </li>
     );
   };
-
-  const cheaperShown = cheaper.filter(keep);
-  const othersShown = others.filter(keep);
 
   return (
     <Sheet open={open} onClose={onClose} title="Teil ersetzen" className="sheet--replace">
@@ -72,23 +107,32 @@ export function ReplaceSheet({ productId, open, onClose, onPick }: { productId: 
         </span>
       </div>
       <p className="sheet__text">Position, Drehung und Ebene bleiben gleich. «Rückgängig» holt das alte Teil zurück.</p>
+      {twice && (
+        <label className="switch">
+          <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} />
+          <span>
+            Alle {sameProduct.length} Platzierungen ersetzen
+            {!all && <span className="switch__note"> · Der Look-Preis sinkt nur, wenn keine mehr übrig bleibt.</span>}
+          </span>
+        </label>
+      )}
       <label className="switch">
         <input type="checkbox" checked={onlyFavs} onChange={(e) => setOnlyFavs(e.target.checked)} />
         <span>Nur gemerkte Produkte ({favs.products.length})</span>
       </label>
       <section aria-labelledby="alt-cheaper">
         <h3 id="alt-cheaper" className="alt-head">
-          Günstiger <span className="panel__count">{cheaperShown.length}</span>
+          Look wird günstiger <span className="panel__count">{down.length}</span>
         </h3>
-        {cheaperShown.length ? <ul className="alt-list">{cheaperShown.map(row)}</ul> : <p className="panel__empty">Keine günstigere Alternative in «{catLabel}».</p>}
+        {down.length ? <ul className="alt-list">{down.map(row)}</ul> : <p className="panel__empty">Keine Alternative in «{catLabel}» senkt den Look-Preis.</p>}
       </section>
       <section aria-labelledby="alt-others">
         <h3 id="alt-others" className="alt-head">
-          Weitere {catLabel} <span className="panel__count">{othersShown.length}</span>
+          Weitere {catLabel} <span className="panel__count">{rest.length}</span>
         </h3>
-        {othersShown.length ? <ul className="alt-list">{othersShown.map(row)}</ul> : <p className="panel__empty">Keine weiteren Teile.</p>}
+        {rest.length ? <ul className="alt-list">{rest.map(row)}</ul> : <p className="panel__empty">Keine weiteren Teile.</p>}
       </section>
-      <p className="fineprint">Gleiche Art von Kleidungsstück zuerst, danach nach Preis des günstigsten Angebots. Demo-Katalog.</p>
+      <p className="fineprint">«Look −/+» zeigt, wie sich der Produktwert des ganzen Looks ändert. Gleiche Art zuerst, danach nach Preis. Demo-Katalog.</p>
     </Sheet>
   );
 }

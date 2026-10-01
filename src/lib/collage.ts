@@ -216,15 +216,6 @@ export function infoFromProduct(product: Product, aspect: number): ItemInfo {
   return { category: product.category, aspect, kind: product.kind };
 }
 
-/** Pieces in reading order for numbered tags: top to bottom, then left to right. */
-export function readingOrder(items: CanvasItem[]): CanvasItem[] {
-  return [...items].sort((a, b) => {
-    const rowA = Math.round(a.y / 250);
-    const rowB = Math.round(b.y / 250);
-    return rowA - rowB || a.x - b.x;
-  });
-}
-
 /**
  * Swap the product behind a placed piece. Centre, rotation and layer stay; the
  * new image keeps its own aspect ratio and is fitted into the old piece's box.

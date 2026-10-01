@@ -2,22 +2,23 @@
 
 Responsive Fashion-Website: Outfits als Collage zusammenstellen, veröffentlichte Looks ansehen, jedes Teil beim Händler kaufen (Affiliate). Startmarkt Schweiz, Deutsch (de-CH), CHF.
 
-Gestaltung: hell und reduziert (Weiss, `#F5F5F7`, Text `#1D1D1F`, Akzent `#0071E3`), Systemschrift, 12–18 px Rundungen. Designsystem in `src/app/globals.css`.
+Gestaltung: hell und ruhig, Tinte `#1D1D1F` für Aktionen, Mohnrot `#D6402B` nur für «deins/neu», Instrument Serif für Titel und Look-Namen, Systemschrift für Bedienung. Regeln und Werte: [DESIGN.md](DESIGN.md); Umsetzung in `src/app/globals.css`.
 
 ## Starten
 
 ```bash
 npm install
 npm run dev        # http://localhost:3100
-npm test           # Unit-Tests (Collage-Logik, Share-Links, Katalog, CHF-Format)
-node scripts/e2e.mjs   # End-to-End-Smoke-Test gegen den laufenden Dev-Server (braucht Chrome oder Edge)
+npm test           # Unit-Tests (Collage, Budget, Speicher, Datenprüfung, Share-Links, Katalog)
+node scripts/e2e.mjs   # Browser-Szenarien gegen den laufenden Dev-Server (braucht Chrome oder Edge); Laufzeitfehler lassen ein Szenario scheitern
+node scripts/perf.mjs http://localhost:3200   # Labormessung gedrosseltes Handy gegen einen Produktions-Build
 ```
 
 ## Seiten
 
 | Route | Inhalt |
 |---|---|
-| `/` | Startseite: Idee, Beispiel-Look mit Preisschildern, Ablauf, Looks, Affiliate-Erklärung |
+| `/` | Startseite: komponierter Look mit direkter Aktion, drei Schritte, Einstiege nach Anlass, Redaktions-Looks |
 | `/entdecken` | Veröffentlichte Looks, Suche, Anlass, Budget, Sortierung (Filter in der URL) |
 | `/builder` | Outfit-Builder: Galerie (Suche, Kategorie, Farbe, Preis), Leinwand, Teile-Liste, Details |
 | `/look/[id]` | Outfit-Seite: Collage mit nummerierten Teilen, Shop, Lieferung CH, Preis, «Zum Shop» |
