@@ -1,0 +1,205 @@
+{
+  "baguette-braun": {
+    "width": 900,
+    "height": 900,
+    "job": "c3756bf2-e5c8-49c0-8642-f10c31c0cc9b"
+  },
+  "baguette-gruen": {
+    "width": 900,
+    "height": 900,
+    "job": "fc542343-641c-4a53-883e-c8eb7dde9db7"
+  },
+  "beanie-rost": {
+    "width": 900,
+    "height": 839,
+    "job": "536927d6-855a-4c1d-8970-523fb355de33"
+  },
+  "blazer-karo": {
+    "width": 643,
+    "height": 900,
+    "job": "2bb32b72-8232-4928-8f94-9f305767aadd"
+  },
+  "blazer-schwarz": {
+    "width": 826,
+    "height": 900,
+    "job": "64041ba5-ea84-4e75-87e2-853be8ebc500"
+  },
+  "boot-braun": {
+    "width": 900,
+    "height": 900,
+    "job": "2fb426b4-d7e6-4c3b-b70d-4d6de3d466dd"
+  },
+  "boot-schwarz": {
+    "width": 900,
+    "height": 804,
+    "job": "f4d792f2-35d8-45d1-a5f2-c29b03184144"
+  },
+  "brille-schildpatt": {
+    "width": 900,
+    "height": 336,
+    "job": "609d804f-15aa-4909-a41b-08e6c831fc45"
+  },
+  "brille-schwarz": {
+    "width": 900,
+    "height": 645,
+    "job": "70dde0c0-2cf2-4098-838b-70c6d2aacfb5"
+  },
+  "cap-navy": {
+    "width": 900,
+    "height": 605,
+    "job": "443e0f48-a740-4bc0-be57-d54eaaa8989e",
+    "cutout": "higgsfield remove_background"
+  },
+  "crossbody-rot": {
+    "width": 900,
+    "height": 900,
+    "job": "e7861a2a-200b-4088-9da9-a17a1c6693f4"
+  },
+  "crossbody-schwarz": {
+    "width": 470,
+    "height": 900,
+    "job": "22d4a1b1-c2c8-4475-8abf-9b1603819ec4",
+    "cutout": "higgsfield remove_background"
+  },
+  "guertel-braun": {
+    "width": 900,
+    "height": 325,
+    "job": "d9f2e98b-8264-4ecf-8e5e-308c59bc3179"
+  },
+  "hemd-hellblau": {
+    "width": 748,
+    "height": 900,
+    "job": "296b3671-720a-4107-842a-4c984541fe25"
+  },
+  "hemd-weiss": {
+    "width": 670,
+    "height": 900,
+    "job": "52957c23-4942-49de-85a0-7fc6d5909891"
+  },
+  "hoodie-grau": {
+    "width": 733,
+    "height": 900,
+    "job": "1b3d1a3c-a5d0-4c91-869d-456ab2e9a68d",
+    "cutout": "higgsfield remove_background"
+  },
+  "hose-beige": {
+    "width": 531,
+    "height": 900,
+    "job": "b033c530-0d20-4b0b-a228-13cacacac22d"
+  },
+  "hose-grau": {
+    "width": 570,
+    "height": 900,
+    "job": "f972559d-83b1-4dc9-ab12-73afd6992906"
+  },
+  "hose-schwarz": {
+    "width": 508,
+    "height": 900,
+    "job": "e6d71e18-8480-4a71-bb91-d63c3ef15368"
+  },
+  "jeans-dunkel": {
+    "width": 555,
+    "height": 900,
+    "job": "b010e126-33a7-429b-9fd5-7d0b18ef3a35"
+  },
+  "jeans-hell": {
+    "width": 413,
+    "height": 900,
+    "job": "d66f6164-1e88-43c0-82a5-f0ed85d6f84d"
+  },
+  "kette-gold": {
+    "width": 900,
+    "height": 900,
+    "job": "de07a371-0d0d-456b-9435-160a1feda1f1"
+  },
+  "loafer-braun": {
+    "width": 900,
+    "height": 281,
+    "job": "a5a595f7-e5c3-41be-b975-121a4664762f"
+  },
+  "loafer-schwarz": {
+    "width": 900,
+    "height": 305,
+    "job": "9788a486-b384-4cb6-8b5d-a25cc704b33d"
+  },
+  "mantel-navy": {
+    "width": 639,
+    "height": 900,
+    "job": "410832dd-40e4-4f27-8566-3c0c4f36872c"
+  },
+  "rock-plisse": {
+    "width": 635,
+    "height": 900,
+    "job": "9619469a-b4e6-4049-9ab8-d579d5cf8ee8"
+  },
+  "rock-schwarz": {
+    "width": 606,
+    "height": 900,
+    "job": "314629fe-4563-41e3-bbce-7a0afa89dd7b"
+  },
+  "schal-karo": {
+    "width": 531,
+    "height": 900,
+    "job": "8b32eece-4286-41b8-9a0d-1d5046f9944a"
+  },
+  "shorts-sand": {
+    "width": 900,
+    "height": 779,
+    "job": "50d6a68e-a1fa-4a20-847f-93c51f1b9ef1"
+  },
+  "sneaker-gruen": {
+    "width": 900,
+    "height": 480,
+    "job": "96c94bf9-31bc-463b-95b3-6ffbf7c36e99"
+  },
+  "sneaker-weiss": {
+    "width": 900,
+    "height": 565,
+    "job": "000ce086-c888-43e7-9862-521cc3cac9bc"
+  },
+  "strick-camel": {
+    "width": 682,
+    "height": 900,
+    "job": "cbf1cde6-9e45-4d35-9557-846c938bbcbb"
+  },
+  "strick-gruen": {
+    "width": 799,
+    "height": 900,
+    "job": "675bbaa4-2942-4848-abe7-82211bf6389e"
+  },
+  "t-schwarz": {
+    "width": 669,
+    "height": 900,
+    "job": "3327d771-8714-440c-b8ff-771917c0eabd"
+  },
+  "t-streifen": {
+    "width": 772,
+    "height": 900,
+    "job": "82907897-4689-4eba-8325-d2029b5f398a"
+  },
+  "t-weiss": {
+    "width": 741,
+    "height": 900,
+    "job": "5cfd4038-2e33-4805-b24f-510f4c232e87"
+  },
+  "tote-natur": {
+    "width": 861,
+    "height": 900,
+    "job": "7218cf84-8161-4819-bdcf-50d0b9196e0a"
+  },
+  "tote-schwarz": {
+    "width": 900,
+    "height": 866,
+    "job": "8caf70c2-89be-41c3-a16f-8a50b1efa43c"
+  },
+  "trench": {
+    "width": 546,
+    "height": 900,
+    "job": "f2b8eca3-c227-4c78-a32f-44c4f56d10ba"
+  },
+  "uhr-silber": {
+    "width": 672,
+    "height": 900,
+    "job": "61787950-2ac4-4712-80c4-d00b368425e6"
+  }
+}

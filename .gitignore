@@ -1,0 +1,13 @@
+node_modules
+.next
+out
+*.tsbuildinfo
+next-env.d.ts
+.impeccable/config.local.json
+acceptance-out
+# large or account-specific generation files (provenance stays in src/lib/renders.json)
+docs/higgsfield/raw/
+docs/higgsfield/cut/
+docs/higgsfield/jobs.tsv
+.impeccable/review/
+.impeccable/hook.cache.json
