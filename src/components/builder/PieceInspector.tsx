@@ -22,6 +22,8 @@ export function PieceInspector({
   onStart,
   onLayer,
   onDuplicate,
+  owned,
+  onOwned,
 }: {
   item: CanvasItem;
   product: Product;
@@ -31,6 +33,9 @@ export function PieceInspector({
   onStart: () => void;
   onLayer: (move: "front" | "back" | "backward") => void;
   onDuplicate: () => void;
+  /** «Habe ich schon»: the same wardrobe as on the look page; owned pieces leave «Noch zu kaufen». */
+  owned: boolean;
+  onOwned: () => void;
 }) {
   const offer = bestOffer(product);
   const shop = getShop(offer.shopId);
@@ -54,6 +59,12 @@ export function PieceInspector({
           <span className="sr-only">(Partnerlink, neues Fenster)</span>
         </a>
       </p>
+      <button type="button" className="own-toggle inspector__own" aria-pressed={owned} onClick={onOwned}>
+        <span className="own-toggle__box" aria-hidden="true">
+          <Icon name="check" size={14} />
+        </span>
+        Habe ich schon<span className="sr-only">: {product.title}</span>
+      </button>
 
       <div className="inspector__group">
         <div className="field">

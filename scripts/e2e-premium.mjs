@@ -1,4 +1,4 @@
-// Premium round: «Habe ich schon», colour palette, «Mischen», heart pop.
+// Premium round: «Habe ich schon», colour palette, «Zufällig tauschen», heart pop.
 // Imported by scripts/e2e.mjs; expects `run`, `base`, `out`, `draft` from there.
 export async function premium({ run, base, out, draft }) {
   const chf = (t) => Number(t.replace(/[^0-9.]/g, ""));
@@ -37,7 +37,7 @@ export async function premium({ run, base, out, draft }) {
     await page.locator(".piece--edit").nth(4).waitFor();
     await page.waitForTimeout(500);
     const before = (await draft(page)).items.map((i) => i.productId).sort().join();
-    await page.getByRole("button", { name: "Mischen" }).first().click();
+    await page.getByRole("button", { name: "Zufällig tauschen", exact: true }).first().click();
     await page.waitForTimeout(500);
     const after = (await draft(page)).items.map((i) => i.productId).sort().join();
     if (before === after) throw new Error("shuffle changed nothing");

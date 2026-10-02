@@ -4,7 +4,8 @@
  * in sessionStorage for debugging. No personal data, no product of the person's identity.
  *
  * Events: landing (first page of a visit, with source), look_viewed, builder_loaded,
- * first_edit, look_saved, look_published, look_shared, shop_clicked.
+ * first_edit, look_saved, look_published, share_started (tap on «Teilen»), look_shared (only after the
+ * share sheet finished or the link was copied), look_exported, shop_clicked.
  */
 export type TrackEvent =
   | "landing"
@@ -13,6 +14,7 @@ export type TrackEvent =
   | "first_edit"
   | "look_saved"
   | "look_published"
+  | "share_started"
   | "look_shared"
   | "look_exported"
   | "shop_clicked";

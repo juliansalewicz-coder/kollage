@@ -27,7 +27,7 @@ export function requireLogin(reason: string, onSuccess: () => void) {
 }
 
 export function openLogin() {
-  pending = { reason: "Melde dich an, um Looks zu speichern und zu veröffentlichen.", onSuccess: () => {} };
+  pending = { reason: "Melde dich an, um Looks unter deinem Namen zu veröffentlichen. Speichern geht auch ohne Anmeldung.", onSuccess: () => {} };
   loginListeners.forEach((l) => l());
 }
 

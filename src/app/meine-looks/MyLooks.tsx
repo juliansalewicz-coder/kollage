@@ -4,11 +4,15 @@ import Link from "next/link";
 import { useState } from "react";
 import { Icon } from "@/components/Icon";
 import { LookWindow } from "@/components/LookWindow";
-import { toast } from "@/lib/events";
+import { useRouter } from "next/navigation";
+import { requireLogin, toast } from "@/lib/events";
 import { formatCHF, formatDate, pieces } from "@/lib/format";
 import { distinctCount, lookTotal } from "@/lib/look";
+import { PUBLISH_LOGIN_REASON, publishProblems } from "@/lib/publish";
+import { track } from "@/lib/track";
 import {
   deleteLook,
+  getSession,
   newLookId,
   removeArchivedDraft,
   signOut,
@@ -52,7 +56,7 @@ export function MyLooks() {
                 </button>
               </>
             ) : (
-              "Deine Looks werden in diesem Browser gespeichert, ohne Anmeldung. Für das Veröffentlichen fragt Kollage nach einem Namen."
+              "Deine Looks werden in diesem Browser gespeichert, ohne Anmeldung. Für das Veröffentlichen fragt Kollage nach Name und E-Mail (Demo-Anmeldung, kein Konto)."
             )}
           </p>
         </div>
@@ -177,12 +181,33 @@ export function MyLooks() {
 }
 
 function LookCard({ look }: { look: Look }) {
+  const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const published = look.status === "veroeffentlicht";
 
-  function toggleStatus() {
-    upsertLook({ ...look, status: published ? "privat" : "veroeffentlicht", updatedAt: new Date().toISOString() });
-    toast(published ? "Zurückgezogen. Der Look ist jetzt privat." : "Veröffentlicht");
+  function withdraw() {
+    upsertLook({ ...look, status: "privat", updatedAt: new Date().toISOString() });
+    toast("Zurückgezogen. Der Look ist jetzt privat.");
+  }
+
+  /** Same rules as the builder (lib/publish). An incomplete look opens in the builder, where the gap is shown. */
+  function publish() {
+    if (publishProblems(look).length) {
+      router.push(`/builder?edit=${encodeURIComponent(look.id)}&veroeffentlichen=1`);
+      return;
+    }
+    requireLogin(PUBLISH_LOGIN_REASON, () => {
+      const user = getSession();
+      const persisted = upsertLook({
+        ...look,
+        status: "veroeffentlicht",
+        authorName: user?.name ?? look.authorName,
+        ownerEmail: user?.email ?? look.ownerEmail,
+        updatedAt: new Date().toISOString(),
+      });
+      track("look_published", { look: look.id, from: "meine-looks" });
+      toast(persisted ? "Veröffentlicht" : "Veröffentlicht, aber nur für diese Sitzung: Browserspeicher blockiert");
+    });
   }
 
   function duplicate() {
@@ -208,7 +233,7 @@ function LookCard({ look }: { look: Look }) {
           <Link href={`/builder?edit=${look.id}`} className="btn btn--primary btn--sm">
             <Icon name="edit" size={16} /> Bearbeiten
           </Link>
-          <button type="button" className="btn btn--ghost btn--sm" onClick={toggleStatus}>
+          <button type="button" className="btn btn--ghost btn--sm" onClick={published ? withdraw : publish}>
             {published ? "Zurückziehen" : "Veröffentlichen"}
           </button>
           <button type="button" className="btn btn--ghost btn--sm" onClick={duplicate}>

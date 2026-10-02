@@ -5784,3 +5784,176 @@ html.menu-open {
     width: var(--stage-w);
   }
 }
+
+/* ===== Review fixes (Oct 2026) ===== */
+
+/* A product picture that failed to load: the drawn silhouette in its colour, a little muted. */
+.img-fallback {
+  display: block;
+  opacity: 0.72;
+}
+.img-fallback svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Builder: owned pieces in the piece list and the inspector toggle. */
+.mini-row__owned {
+  font-size: 0.75rem;
+  color: var(--muted, #666);
+  white-space: nowrap;
+}
+.inspector__own {
+  margin-top: 4px;
+}
+.budget__value dd {
+  color: var(--muted, #666);
+}
+
+/* Account menu (signed in): who, «Meine Looks», «Abmelden». */
+.account {
+  position: relative;
+}
+.account__menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  min-width: 232px;
+  padding: 6px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sheet, 10px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+  transform-origin: top right;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .account__menu {
+    animation: account-in 180ms var(--ease-out-strong);
+  }
+}
+@keyframes account-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+.account__who {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 10px 12px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+.account__who span {
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.account__who .account__demo {
+  font-size: 12px;
+  margin-top: 4px;
+}
+.account__item {
+  display: block;
+  width: 100%;
+  padding: 11px 12px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  color: var(--ink);
+  text-decoration: none;
+  border-radius: var(--r-btn, 2px);
+  cursor: pointer;
+}
+.account__item:hover,
+.account__item:focus-visible {
+  background: var(--bg-2, #f3f3f3);
+}
+
+/* Entdecken: search and «Filter» in one row; occasions as one swipe row; budget and sorting behind «Filter» on phones. */
+.toolbar__row {
+  display: flex;
+  gap: 8px;
+  flex: 1 1 300px;
+  min-width: 0;
+}
+.toolbar__row .field--search {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.toolbar__more {
+  display: none;
+  flex: none;
+  gap: 6px;
+}
+.toolbar__count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 11px;
+}
+@media (max-width: 767px) {
+  .toolbar--discover {
+    gap: 10px;
+    padding-bottom: 12px;
+  }
+  .toolbar__row {
+    flex-basis: 100%;
+  }
+  .toolbar__more {
+    display: inline-flex;
+    align-items: center;
+  }
+  .toolbar--discover .chips--scroll {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    width: calc(100% + 2 * var(--gutter));
+    margin-inline: calc(-1 * var(--gutter));
+    padding-inline: var(--gutter);
+    scroll-padding-inline: var(--gutter);
+  }
+  .toolbar--discover .chips--scroll::-webkit-scrollbar {
+    display: none;
+  }
+  .toolbar--discover .chips--scroll .chip {
+    flex: none;
+  }
+  .toolbar--discover .toolbar__selects:not(.is-open) {
+    display: none;
+  }
+  .toolbar--discover + .result-bar {
+    margin: 12px 0;
+  }
+  .page__head:has(+ .toolbar--discover) {
+    margin-bottom: 16px;
+  }
+  .page__head:has(+ .toolbar--discover) .page__lead {
+    margin-top: 4px;
+    font-size: 16px;
+  }
+}
+
+/* Desktop gallery: all categories visible (wrapped) instead of a row that hides Schuhe, Taschen, Accessoires. */
+@media (min-width: 1024px) {
+  .builder__gallery .tabs-scroll {
+    flex-wrap: wrap;
+    overflow: visible;
+    gap: 6px;
+  }
+}
+
+/* Phone idle tools: labels stay on one line. */
+.idle-tools .tool__label {
+  white-space: nowrap;
+}

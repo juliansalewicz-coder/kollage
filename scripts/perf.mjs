@@ -49,14 +49,15 @@ for (const [name, path] of pages) {
   });
   const t0 = Date.now();
   await page.goto(base + path, { waitUntil: "commit" });
-  await page.waitForTimeout(3200);
-  // Outfit pictures that are visible on the first screen and finished at 3.2 s.
+  // Outfit pictures visible on the first screen and finished 3 s after navigation start. Timed in the page
+  // (performance.now() starts at navigation), not from the commit, which can itself arrive late on a slow line.
+  await page.waitForFunction(() => performance.now() >= 3000, null, { polling: 50, timeout: 60000 });
   const at3 = await page.evaluate(() => {
     const imgs = [...document.querySelectorAll(".window img, .featured img")].filter((i) => {
       const r = i.getBoundingClientRect();
       return r.top < innerHeight && r.bottom > 0 && r.width > 0;
     });
-    return { visible: imgs.length, complete: imgs.filter((i) => i.complete && i.naturalWidth > 0).length };
+    return { visible: imgs.length, complete: imgs.filter((i) => i.complete && i.naturalWidth > 0).length, at: performance.now() };
   });
   await page.waitForTimeout(9000);
   const data = await page.evaluate(() => {
@@ -81,6 +82,8 @@ for (const [name, path] of pages) {
     jsKB: data.jsKB,
     imageRequests: data.imageRequests,
     outfitImagesAt3s: `${at3.complete}/${at3.visible}`,
+    // When the snapshot was really taken (s after navigation start); above 3.0 means the commit came later.
+    snapshotAt: +(at3.at / 1000).toFixed(2),
     wallSeconds: Math.round((Date.now() - t0) / 1000),
   });
   await ctx.close();

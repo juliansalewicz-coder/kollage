@@ -4,7 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { openLogin, useToasts } from "@/lib/events";
 import { useCallback, useEffect, useState } from "react";
-import { probeStorage, signOut, useFavorites, useSession, useStorageStatus } from "@/lib/store";
+import { getProduct } from "@/lib/catalog";
+import { getSeedLook } from "@/lib/seed-looks";
+import { probeStorage, useFavorites, useLooks, useSession, useStorageStatus } from "@/lib/store";
+import { AccountMenu } from "./AccountMenu";
 import { Icon } from "./Icon";
 import { MenuPanel } from "./MenuPanel";
 import { Wordmark } from "./Wordmark";
@@ -25,7 +28,10 @@ export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const inBuilder = path.startsWith("/builder");
-  const favCount = favs.products.length + favs.looks.length;
+  const looks = useLooks();
+  // Count what «Gemerkt» can actually show: a deleted look or a product gone from the catalog is not counted.
+  const favCount =
+    favs.products.filter((id) => getProduct(id)).length + favs.looks.filter((id) => getSeedLook(id) || looks.some((l) => l.id === id)).length;
   useEffect(() => setMenuOpen(false), [path]);
   const isActive = (href: string) => path === href || path.startsWith(href + "/");
   return (
@@ -54,11 +60,7 @@ export function SiteHeader() {
             )}
           </Link>
           {session ? (
-            <button type="button" className="nav__icon nav__account" onClick={signOut} title={`Angemeldet als ${session.name}. Abmelden`}>
-              <Icon name="user" size={20} />
-              <span className="nav__account-name">{session.name}</span>
-              <span className="sr-only">, abmelden</span>
-            </button>
+            <AccountMenu session={session} />
           ) : (
             <button type="button" className="nav__icon nav__account" onClick={openLogin} aria-label="Anmelden">
               <Icon name="user" size={20} />

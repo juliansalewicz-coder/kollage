@@ -12,9 +12,14 @@ const WALL: Record<Backdrop, string> = {
   nacht: "#f1efeb",
 };
 
-const WIDTH = 1080; // 4:5, the size Instagram and TikTok accept for photos
-const SCALE = WIDTH / CANVAS_W;
+/* The whole file is 4:5 (1080 × 1350), the portrait size Instagram and TikTok show without cropping.
+   The title strip sits inside it: the collage is scaled to the space above and centred on the wall colour. */
+const WIDTH = 1080;
+const HEIGHT = 1350;
 const FOOTER = 120;
+const SCALE = (HEIGHT - FOOTER) / CANVAS_H;
+const OFFSET_X = (WIDTH - CANVAS_W * SCALE) / 2;
+export const EXPORT_SIZE = { width: WIDTH, height: HEIGHT };
 
 function load(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -28,17 +33,17 @@ function load(src: string): Promise<HTMLImageElement> {
 
 /**
  * Draws the collage as a PNG: pieces in their layer order with the same soft shadow as on screen,
- * plus a white strip with the look title, the total and the name Kollage.
+ * plus a white strip with the look title, the total and the name Kollage. 1080 × 1350 px in total.
  */
 export async function renderLookImage(items: CanvasItem[], backdrop: Backdrop, title: string, total: number): Promise<Blob> {
   const canvas = document.createElement("canvas");
   canvas.width = WIDTH;
-  canvas.height = CANVAS_H * SCALE + FOOTER;
+  canvas.height = HEIGHT;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas wird nicht unterstützt");
 
   ctx.fillStyle = WALL[backdrop];
-  ctx.fillRect(0, 0, WIDTH, CANVAS_H * SCALE);
+  ctx.fillRect(0, 0, WIDTH, HEIGHT - FOOTER);
 
   const pieces = [...items].sort((a, b) => a.z - b.z).flatMap((it) => {
     const product = getProduct(it.productId);
@@ -50,7 +55,7 @@ export async function renderLookImage(items: CanvasItem[], backdrop: Backdrop, t
     const w = it.w * SCALE;
     const h = w * imageAspect(product);
     ctx.save();
-    ctx.translate(it.x * SCALE, it.y * SCALE);
+    ctx.translate(OFFSET_X + it.x * SCALE, it.y * SCALE);
     ctx.rotate((it.rotation * Math.PI) / 180);
     ctx.shadowColor = "rgba(0, 0, 0, 0.13)";
     ctx.shadowBlur = 22;
@@ -60,7 +65,7 @@ export async function renderLookImage(items: CanvasItem[], backdrop: Backdrop, t
   });
 
   const font = getComputedStyle(document.body).fontFamily || "sans-serif";
-  const y = CANVAS_H * SCALE;
+  const y = HEIGHT - FOOTER;
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, y, WIDTH, FOOTER);
   ctx.fillStyle = "#111111";

@@ -90,3 +90,7 @@ export function favorites(v: unknown): { products: string[]; looks: string[] } {
   const ids = (x: unknown) => (Array.isArray(x) ? x.filter((i): i is string => typeof i === "string") : []);
   return isObj(v) ? { products: ids(v.products), looks: ids(v.looks) } : { products: [], looks: [] };
 }
+
+export function idList(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((i): i is string => typeof i === "string") : [];
+}
