@@ -41,6 +41,7 @@ export function FeaturedLook({ look }: { look: Look }) {
           </Link>
           <span className="featured__meta">
             {pieces(distinctCount(look.items))} · <span className="num">{formatCHF(lookTotal(look.items))}</span>
+            <span className="featured__demo"> · Demo-Preise</span>
             <span className="featured__hint"> · Teil antippen für Details</span>
           </span>
         </span>

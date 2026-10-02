@@ -45,23 +45,23 @@ export async function review2({ run, base, out, draft }) {
     await page.goto(base + "/builder");
     const status = page.locator(".builder__status .save-status");
     await status.getByText("Leere Leinwand").waitFor();
-    if (!(await page.getByRole("button", { name: "Anmelden & speichern" }).isVisible())) throw new Error("guest save label");
+    if (!(await page.getByRole("button", { name: "Speichern", exact: true }).isVisible())) throw new Error("guest save label");
     if (!(await page.getByRole("button", { name: "Anmelden & veröffentlichen" }).isVisible())) throw new Error("guest publish label");
     await page.locator(".product-card", { hasText: "Boxy T-Shirt" }).first().click();
     // Motion: the new piece is marked as just arrived.
     await page.locator(".piece--edit.fx-add").first().waitFor();
     await status.getByText("Entwurf in diesem Browser gesichert").waitFor();
-    // Cancelling the sign-in keeps the draft and its state.
-    await page.getByRole("button", { name: "Anmelden & speichern" }).click();
-    await page.getByRole("button", { name: "Abbrechen" }).click();
-    if ((await draft(page)).items.length !== 1) throw new Error("draft lost after cancel");
+    // Publishing (two pieces needed) asks for a name; cancelling keeps the draft and its state.
     await page.locator(".product-card", { hasText: "Straight Jeans, hell" }).first().click();
-    await page.getByRole("button", { name: "Anmelden & speichern" }).click();
-    await page.fill("#auth-name", "Test Person");
-    await page.fill("#auth-email", "test@example.ch");
-    await page.getByRole("button", { name: "Anmelden und fortfahren" }).click();
+    await page.fill("#look-title", "Gast-Look");
+    await page.getByRole("button", { name: "Anmelden & veröffentlichen" }).click();
+    await page.getByRole("button", { name: "Abbrechen" }).click();
+    await page.waitForTimeout(400);
+    if ((await draft(page)).items.length !== 2) throw new Error("draft lost after cancel");
+    // A guest saves without signing in.
+    await page.getByRole("button", { name: "Speichern", exact: true }).click();
+    if (await page.locator("dialog[open]").count()) throw new Error("saving asked for a sign-in");
     await status.getByText("Gespeichert in «Meine Looks»").waitFor();
-    if (!(await page.getByRole("button", { name: "Speichern", exact: true }).isVisible())) throw new Error("signed-in save label");
     // A change after saving: draft is safe, but not yet in «Meine Looks».
     await page.locator(".product-card", { hasText: "Leder-Sneaker" }).first().click();
     await status.getByText("Entwurf in diesem Browser gesichert").waitFor();

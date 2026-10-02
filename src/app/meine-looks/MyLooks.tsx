@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Icon } from "@/components/Icon";
 import { LookWindow } from "@/components/LookWindow";
-import { openLogin, toast } from "@/lib/events";
+import { toast } from "@/lib/events";
 import { formatCHF, formatDate, pieces } from "@/lib/format";
 import { distinctCount, lookTotal } from "@/lib/look";
 import {
@@ -31,7 +31,8 @@ export function MyLooks() {
   const archived = useArchivedDrafts();
   const [filter, setFilter] = useState<Filter>("alle");
 
-  const mine = session ? looks.filter((l) => l.ownerEmail === session.email) : [];
+  // Demo without accounts: every look saved in this browser is yours.
+  const mine = looks;
   const shown = mine.filter((l) => filter === "alle" || l.status === filter).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   const unsavedDraft = draft && draft.items.length > 0 && !draft.lookId ? draft : null;
 
@@ -51,7 +52,7 @@ export function MyLooks() {
                 </button>
               </>
             ) : (
-              "Als Gast kannst du gestalten. Zum dauerhaften Speichern und Veröffentlichen meldest du dich an."
+              "Deine Looks werden in diesem Browser gespeichert, ohne Anmeldung. Für das Veröffentlichen fragt Kollage nach einem Namen."
             )}
           </p>
         </div>
@@ -121,16 +122,16 @@ export function MyLooks() {
         </section>
       )}
 
-      {!session ? (
+      {mine.length === 0 ? (
         <div className="empty">
           <h2 className="empty__title">Deine gespeicherten Looks erscheinen hier</h2>
-          <p>Melde dich an, um Looks zu speichern, später weiterzubearbeiten und zu veröffentlichen. Dein aktueller Entwurf bleibt dabei erhalten.</p>
+          <p>Im Builder auf «Speichern» tippen. Der Look bleibt in diesem Browser, eine Anmeldung brauchst du dafür nicht.</p>
           <div className="empty__actions">
-            <button type="button" className="btn btn--primary" onClick={openLogin}>
-              Anmelden
-            </button>
-            <Link href="/builder" className="btn btn--ghost">
-              Als Gast gestalten
+            <Link href="/builder" className="btn btn--primary">
+              Look erstellen
+            </Link>
+            <Link href="/entdecken" className="btn btn--ghost">
+              Looks entdecken
             </Link>
           </div>
         </div>

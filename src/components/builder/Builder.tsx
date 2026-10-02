@@ -27,6 +27,7 @@ import { distinctCount, pieceRows } from "@/lib/look";
 import { BACKDROPS, getSeedLook, lookup, OCCASIONS } from "@/lib/seed-looks";
 import { COMPACT_QUERY, isolate } from "@/lib/modal";
 import { decodeLook } from "@/lib/share";
+import { track } from "@/lib/track";
 import {
   archiveDraft,
   getArchivedDrafts,
@@ -79,6 +80,20 @@ export function Builder() {
   const [saveOpen, setSaveOpen] = useState(false);
   /** False until the stored draft and the URL (?look=, ?d=, ...) are applied. */
   const [booted, setBooted] = useState(false);
+  /* Funnel: builder ready with what, and the first real change after that. */
+  const tracked = useRef({ loaded: false, edited: false, baseline: "" });
+  useEffect(() => {
+    if (!booted || tracked.current.loaded) return;
+    tracked.current.loaded = true;
+    tracked.current.baseline = JSON.stringify(live.current.items);
+    track("builder_loaded", { basedOn: live.current.basedOn, pieces: live.current.items.length });
+  }, [booted, live]);
+  useEffect(() => {
+    const t = tracked.current;
+    if (!t.loaded || t.edited || JSON.stringify(state.items) === t.baseline) return;
+    t.edited = true;
+    track("first_edit", { basedOn: live.current.basedOn });
+  }, [state.items, live]);
   /* Motion feedback. Pieces added while the phone drawer covers the canvas animate when it closes. */
   const [fx, setFx] = useState<CanvasFx | null>(null);
   const queuedAdds = useRef<string[]>([]);
@@ -301,11 +316,15 @@ export function Builder() {
     if (oldP && newP) toast(`${uids.length > 1 ? `${uids.length}× ` : ""}${oldP.title} ersetzt durch ${newP.title}. «Rückgängig» stellt es wieder her.`);
   }
 
+  /**
+   * Saves the draft as a look in this browser. Saving needs no sign-in (it would add nothing in the demo);
+   * only publishing asks for a name, because it is shown as the author.
+   */
   function persist(status?: LookStatus): { look: Look; persisted: boolean } {
-    const user = getSession()!;
+    const user = getSession();
     const s = live.current;
     const now = new Date().toISOString();
-    const existing = s.lookId ? getLooks().find((l) => l.id === s.lookId && l.ownerEmail === user.email) : undefined;
+    const existing = s.lookId ? getLooks().find((l) => l.id === s.lookId) : undefined;
     const title = s.title.trim() || "Unbenannter Look";
     const look: Look = {
       id: existing?.id ?? newLookId(title),
@@ -315,8 +334,8 @@ export function Builder() {
       items: s.items,
       backdrop: s.backdrop,
       status: status ?? existing?.status ?? "privat",
-      authorName: user.name,
-      ownerEmail: user.email,
+      authorName: user?.name ?? existing?.authorName ?? "Gast",
+      ownerEmail: user?.email ?? existing?.ownerEmail ?? null,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       basedOn: s.basedOn,
@@ -334,12 +353,11 @@ export function Builder() {
       return;
     }
     setFormError(null);
-    requireLogin("Melde dich an, um deinen Look in «Meine Looks» zu speichern.", () => {
-      setSaveOpen(false);
-      const { look, persisted } = persist();
-      const what = look.status === "veroeffentlicht" ? "Änderungen veröffentlicht" : "Gespeichert in «Meine Looks»";
-      toast(persisted ? what : `${what}, aber nur für diese Sitzung: Browserspeicher blockiert`);
-    });
+    setSaveOpen(false);
+    const { look, persisted } = persist();
+    track("look_saved", { look: look.id, published: look.status === "veroeffentlicht" });
+    const what = look.status === "veroeffentlicht" ? "Änderungen veröffentlicht" : "Gespeichert in «Meine Looks»";
+    toast(persisted ? what : `${what}, aber nur für diese Sitzung: Browserspeicher blockiert`);
   }
 
   function publish() {
@@ -363,6 +381,7 @@ export function Builder() {
     if (problems.length) return;
     requireLogin("Melde dich an, um deinen Look zu veröffentlichen.", () => {
       const { look, persisted } = persist("veroeffentlicht");
+      track("look_published", { look: look.id });
       if (!persisted) {
         toast("Veröffentlicht, aber nur für diese Sitzung: Browserspeicher blockiert");
         return;
@@ -372,7 +391,8 @@ export function Builder() {
     });
   }
 
-  const ownLook = state.lookId && session ? getLooks().find((l) => l.id === state.lookId && l.ownerEmail === session.email) : undefined;
+  // Every saved look in this browser belongs to this browser (demo without accounts).
+  const ownLook = state.lookId ? looks.find((l) => l.id === state.lookId) : undefined;
   const isPublished = ownLook?.status === "veroeffentlicht";
 
   /* What is saved where. Only claims "gesichert" after a write that really succeeded. */
@@ -391,13 +411,13 @@ export function Builder() {
               detail: isPublished ? "Änderungen sind noch nicht veröffentlicht." : "Noch nicht in «Meine Looks» gespeichert.",
             }
           : { tone: "muted", text: "Entwurf wird gesichert …", detail: "" };
-  const saveLabel = !session ? "Anmelden & speichern" : isPublished ? "Änderungen veröffentlichen" : "Speichern";
+  const saveLabel = isPublished ? "Änderungen veröffentlichen" : "Speichern";
   const publishLabel = !session ? "Anmelden & veröffentlichen" : "Veröffentlichen";
-  const saveHint = isPublished ? "Aktualisiert die Look-Seite und den Eintrag unter «Entdecken»." : "Legt den Look unter «Meine Looks» ab.";
-  const publishHint = "Zeigt den Look mit eigener Seite unter «Entdecken».";
-  const demoHint = "Demo-Anmeldung: kein echtes Konto. Alles bleibt in diesem Browser und wird nicht zwischen Geräten abgeglichen.";
+  const saveHint = isPublished ? "Aktualisiert die Look-Seite und den Eintrag unter «Entdecken»." : "Legt den Look unter «Meine Looks» ab, ohne Anmeldung.";
+  const publishHint = session ? "Zeigt den Look mit eigener Seite unter «Entdecken»." : "Zeigt den Look unter «Entdecken». Dafür brauchst du einen Namen (Demo-Anmeldung).";
+  const demoHint = "Alles bleibt in diesem Browser und wird nicht zwischen Geräten abgeglichen. Die Anmeldung ist eine Demo ohne echtes Konto.";
   /** One line under the desktop status: what the two buttons add to the automatic draft. */
-  const explain = `Speichern legt den Look in «Meine Looks», Veröffentlichen zeigt ihn unter «Entdecken». ${session ? "Nur in diesem Browser." : "Demo-Anmeldung, nur in diesem Browser."}`;
+  const explain = `Speichern legt den Look in «Meine Looks», ohne Anmeldung. Veröffentlichen zeigt ihn unter «Entdecken»${session ? "" : " und fragt nach einem Namen"}. Nur in diesem Browser.`;
 
   const short: Record<string, string> = {
     "Entwurf in diesem Browser gesichert": "Entwurf gesichert",

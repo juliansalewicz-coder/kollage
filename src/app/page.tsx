@@ -3,6 +3,9 @@ import { FeaturedLook } from "@/components/FeaturedLook";
 import { Icon } from "@/components/Icon";
 import { LookTile } from "@/components/LookTile";
 import { LookWindow } from "@/components/LookWindow";
+import { ProductStrip } from "@/components/ProductStrip";
+import { formatCHF } from "@/lib/format";
+import { lookTotal } from "@/lib/look";
 import { getSeedLook, SEED_LOOKS, STYLE_ENTRIES } from "@/lib/seed-looks";
 
 const EDITORS_PICKS = ["erster-arbeitstag", "apero-am-abend", "zug-nach-lugano"];
@@ -39,6 +42,20 @@ export default function HomePage() {
               Mit leerer Leinwand starten <Icon name="chevronRight" size={16} />
             </Link>
           </div>
+        </div>
+      </section>
+
+      <section className="section section--shop" aria-labelledby="pieces-title">
+        <div className="wrap">
+          <div className="section__head">
+            <h2 id="pieces-title" className="headline">
+              Die Teile von «{hero.title}»
+            </h2>
+            <p className="section__aside">
+              Zusammen <span className="num">{formatCHF(lookTotal(hero.items))}</span> · Beispielpreise aus dem Demo-Katalog
+            </p>
+          </div>
+          <ProductStrip look={hero} />
         </div>
       </section>
 

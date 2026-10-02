@@ -2,7 +2,7 @@
 
 Responsive Fashion-Website: Outfits als Collage zusammenstellen, veröffentlichte Looks ansehen, jedes Teil beim Händler kaufen (Affiliate). Startmarkt Schweiz, Deutsch (de-CH), CHF.
 
-Gestaltung: hell und ruhig, Tinte `#1D1D1F` für Aktionen, Mohnrot `#D6402B` nur für «deins/neu», Instrument Serif für Titel und Look-Namen, Systemschrift für Bedienung. Regeln und Werte: [DESIGN.md](DESIGN.md); Umsetzung in `src/app/globals.css`.
+Gestaltung: «Clean Shop», neutral wie ein Modegeschäft: Geist-Schrift, Schwarz auf Weiss, Produktbilder auf Hellgrau, eckige Bedienelemente. Regeln und Werte: [DESIGN.md](DESIGN.md).
 
 ## Starten
 
