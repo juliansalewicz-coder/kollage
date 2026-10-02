@@ -8,6 +8,7 @@ import { paket3 } from "./e2e-paket3.mjs";
 import { review2 } from "./e2e-review2.mjs";
 import { audit } from "./e2e-audit.mjs";
 import { cleanshop } from "./e2e-cleanshop.mjs";
+import { gestures } from "./e2e-gestures.mjs";
 
 const out = process.argv[2] || "acceptance-out/e2e";
 const only = process.env.ONLY;
@@ -202,6 +203,7 @@ await paket3({ run, base, out, draft });
 await review2({ run, base, out, draft });
 await audit({ run, base, out, draft });
 await cleanshop({ run, base, out, draft });
+await gestures({ run, base, out, draft });
 
 await browser.close();
 process.exit(failed ? 1 : 0);

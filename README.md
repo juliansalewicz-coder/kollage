@@ -41,6 +41,9 @@ Produktions-Build neben laufendem Dev-Server: `NEXT_DIST_DIR=.next-build npx nex
 
 ## Builder-Funktionen
 
+- Direktes Bearbeiten ohne Ruckeln: Verschieben, Skalieren und Drehen laufen über GPU-Transforms, ein Undo-Schritt pro Geste; zwei Finger zoomen und drehen, Trackpad-Pinch skaliert, die Mitte rastet mit Hilfslinie ein.
+- «Als Bild»: Look als PNG (4:5) mit Titel und Preis teilen oder speichern.
+
 - Teil antippen oder in die Leinwand ziehen (Desktop), Ablage in Moodboard-Zonen je Kategorie. Auf Mobile öffnet «Produkte hinzufügen» eine ausziehbare Produktauswahl.
 - Verschieben (Maus/Finger), Grösse über Eckgriff, Drehen über Griff oben (rastet bei 45° ein).
 - Werkzeugleiste: kleiner, grösser, drehen, Ebene vor/zurück, duplizieren, entfernen.
