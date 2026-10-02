@@ -712,7 +712,7 @@ input[type="range"] {
 }
 
 .look-page__window .piece {
-  animation: set-down 420ms var(--ease-out) both;
+  animation: set-down 420ms var(--ease-out) backwards;
   animation-delay: calc(var(--i, 0) * 50ms);
 }
 
@@ -1298,7 +1298,7 @@ input[type="range"] {
 
 .builder__bar {
   display: grid;
-  grid-template-columns: minmax(220px, 400px) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(220px, 340px) minmax(0, 1fr) auto;
   gap: 8px 20px;
   align-items: end;
 }
@@ -4965,4 +4965,338 @@ p {
 .save-action:disabled {
   opacity: 0.5;
   cursor: progress;
+}
+
+/* =========================================================================
+   Premium motion (see DESIGN.md, «Motion»). Transform and opacity only,
+   custom curves, nothing on keyboard actions, all of it off with reduced motion.
+   ========================================================================= */
+
+:root {
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Press feedback on everything that is pressed often. */
+.tool,
+.chip,
+.nav__icon,
+.pcard,
+.product-card,
+.alt-row,
+.save-action,
+.mini-row,
+.lookbar,
+.own-toggle,
+.fav--icon {
+  transition-property: background-color, color, box-shadow, scale;
+  transition-duration: 160ms;
+  transition-timing-function: var(--ease-out-strong);
+}
+
+.tool:active:not(:disabled),
+.chip:active,
+.nav__icon:active,
+.pcard:active,
+.product-card:active,
+.alt-row:active,
+.save-action:active:not(:disabled),
+.mini-row:active,
+.lookbar:active,
+.own-toggle:active {
+  scale: 0.97;
+}
+
+.btn {
+  transition: background-color 160ms var(--ease), color 160ms var(--ease), box-shadow 160ms var(--ease), transform 160ms var(--ease-out-strong);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Pictures that arrive after the page is ready fade in (GarmentArt adds .is-pending). */
+  img.is-pending {
+    opacity: 0;
+  }
+  img {
+    transition: opacity 360ms var(--ease-out-strong);
+  }
+
+  /* The start page outfit is laid down piece by piece. */
+  .featured .piece {
+    animation: lay-down 620ms var(--ease-out-strong) backwards;
+    animation-delay: calc(var(--i, 0) * 70ms + 120ms);
+  }
+  .home-hero__copy > * {
+    animation: rise 640ms var(--ease-out-strong) backwards;
+  }
+  .home-hero__copy > :nth-child(2) {
+    animation-delay: 80ms;
+  }
+  .featured__plate,
+  .home-hero__more {
+    animation: rise 640ms var(--ease-out-strong) 420ms backwards;
+  }
+
+  /* Hover lift for shop cards, only with a real pointer. */
+  @media (hover: hover) and (pointer: fine) {
+    .pcard__media {
+      transition: background-color 220ms var(--ease);
+    }
+    .pcard:hover .pcard__media {
+      background: var(--bg-3);
+    }
+  }
+}
+
+@keyframes lay-down {
+  from {
+    opacity: 0;
+    translate: 0 -14px;
+    scale: 0.96;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
+}
+
+/* Sheets: bottom sheet with the iOS drawer curve, backdrop fades. */
+.sheet::backdrop,
+.dialog::backdrop {
+  animation: fade 240ms var(--ease) both;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.sheet[open],
+.dialog[open] {
+  animation: pop-in 240ms var(--ease-out-strong);
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    scale: 0.96;
+  }
+}
+
+@media (max-width: 640px) {
+  .sheet[open] {
+    animation: sheet-up 420ms var(--ease-drawer);
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    translate: 0 100%;
+  }
+}
+
+@media (max-width: 1023px) {
+  .builder__gallery {
+    transition:
+      translate 420ms var(--ease-drawer),
+      visibility 0s linear 420ms;
+  }
+  .builder[data-sheet="open"] .builder__gallery {
+    transition:
+      translate 420ms var(--ease-drawer),
+      visibility 0s;
+  }
+}
+
+/* Toasts rise from below and settle. */
+.toast {
+  animation: toast-rise 320ms var(--ease-out-strong);
+}
+
+@keyframes toast-rise {
+  from {
+    opacity: 0;
+    translate: 0 14px;
+    scale: 0.97;
+  }
+}
+
+/* Heart: a short pop when something is remembered (only on tap, see FavoriteButton). */
+.fav__icon {
+  display: inline-grid;
+}
+
+.fav__icon.is-pop {
+  animation: heart-pop 420ms var(--ease-out-strong);
+}
+
+@keyframes heart-pop {
+  0% {
+    scale: 0.7;
+  }
+  45% {
+    scale: 1.28;
+  }
+  100% {
+    scale: 1;
+  }
+}
+
+/* ---------- colour palette of a look ---------- */
+.palette {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  margin: 10px 0 0;
+  padding: 0;
+}
+
+.palette__dot {
+  width: 18px;
+  height: 18px;
+  margin-right: -4px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px #fff, inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+.palette__label {
+  margin-left: 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.palette--sm {
+  margin-top: 6px;
+}
+
+.palette--sm .palette__dot {
+  width: 11px;
+  height: 11px;
+  margin-right: -2px;
+  box-shadow: 0 0 0 1.5px #fff, inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .look-page .palette__dot {
+    animation: rise 420ms var(--ease-out-strong) backwards;
+    animation-delay: calc(var(--i) * 50ms + 300ms);
+  }
+}
+
+/* ---------- «Habe ich schon» ---------- */
+.own-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 6px;
+  min-height: 32px;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  font-size: 13px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.own-toggle__box {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--r-btn);
+  box-shadow: inset 0 0 0 1.5px var(--line-strong);
+  color: transparent;
+  transition: background-color 160ms var(--ease), box-shadow 160ms var(--ease), color 160ms var(--ease);
+}
+
+.own-toggle[aria-pressed="true"] .own-toggle__box {
+  background: var(--ink);
+  box-shadow: none;
+  color: #fff;
+}
+
+.buy-row .buy-row__thumb,
+.buy-row .buy-row__text,
+.buy-row .buy-row__price,
+.buy-row .btn {
+  transition: opacity 260ms var(--ease);
+}
+
+.buy-row.is-owned .buy-row__thumb,
+.buy-row.is-owned .buy-row__text,
+.buy-row.is-owned .btn {
+  opacity: 0.4;
+}
+
+.buy-row.is-owned .buy-row__price {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.piece.is-muted {
+  opacity: 0.22;
+  filter: grayscale(0.7);
+  transition: opacity 320ms var(--ease), filter 320ms var(--ease);
+}
+
+.buy-saved {
+  margin: -4px 0 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.buy-total .ticker {
+  font-weight: 600;
+}
+
+/* Scroll reveal without JavaScript: cards and rows glide in as they enter the viewport.
+   Where scroll-driven animations are not supported, content is simply there. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    [data-reveal] {
+      animation: rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 55%;
+    }
+    [data-reveal]:nth-child(2) {
+      animation-range: entry 5% entry 62%;
+    }
+    [data-reveal]:nth-child(3) {
+      animation-range: entry 10% entry 69%;
+    }
+    [data-reveal]:nth-child(4) {
+      animation-range: entry 15% entry 76%;
+    }
+  }
+}
+
+@media (max-width: 767px) {
+  /* Look page rows on phones: price and shop on one line, «Habe ich schon» below. */
+  .buy-row__buy {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+  .own-toggle {
+    flex: 1 1 100%;
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 1023px) {
+  /* Idle dock: the hint gets its own line, the three canvas actions sit centred below. */
+  .stage-dock .piece-tools.is-idle {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0;
+  }
+  .stage-dock .piece-tools.is-idle .piece-tools__hint {
+    flex: 1 1 100%;
+    text-align: center;
+  }
+  .stage-dock .idle-tools {
+    gap: 8px;
+  }
 }

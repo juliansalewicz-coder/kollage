@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { bestSaving, budgetSummary } from "@/lib/budget";
+import { alternatives, bestSaving, budgetSummary } from "@/lib/budget";
 import { getProduct, imageAspect } from "@/lib/catalog";
 import {
   addItem,
@@ -303,18 +303,48 @@ export function Builder() {
   const edit = (fn: (xs: typeof items) => typeof items) => commit((s) => ({ ...s, items: fn(s.items) }));
 
   /** Swaps one placement, or every placement of the same product (one undo step either way). */
-  function replaceWith(productId: string, uids: string[]) {
-    const uid = replaceFor;
-    if (!uid) return;
+  /** Swaps the product of one or more placements in one undo step, with the cross-fade. */
+  function swapPiece(uid: string, productId: string, uids: string[]) {
     const before = live.current.items.find((i) => i.uid === uid);
     const oldP = before ? getProduct(before.productId) : undefined;
     const newP = getProduct(productId);
     edit((xs) => uids.reduce((acc, u) => replaceItem(acc, u, productId, lookup), xs));
     if (before) setFx({ uids, kind: "swap", from: before.productId, key: Date.now() });
+    setSelected(uid);
+    return { oldP, newP };
+  }
+
+  function replaceWith(productId: string, uids: string[]) {
+    const uid = replaceFor;
+    if (!uid) return;
+    const { oldP, newP } = swapPiece(uid, productId, uids);
     setReplaceFor(null);
     setMoreOpen(false);
-    setSelected(uid);
     if (oldP && newP) toast(`${uids.length > 1 ? `${uids.length}× ` : ""}${oldP.title} ersetzt durch ${newP.title}. «Rückgängig» stellt es wieder her.`);
+  }
+
+  /**
+   * «Mischen»: tries a different piece of the same kind for the selected piece (or a random one),
+   * so a look can be varied with one tap. Undo brings the previous piece back.
+   */
+  function shuffle() {
+    const xs = live.current.items;
+    if (!xs.length) return;
+    const variants = (it: (typeof xs)[number]) => {
+      const { cheaper, others } = alternatives(it.productId);
+      return [...cheaper, ...others].filter((a) => a.similar && !xs.some((i) => i.productId === a.product.id));
+    };
+    // The selected piece, otherwise a random piece that actually has a variant (a cap may have none).
+    const candidates = xs.filter((i) => variants(i).length);
+    const target = xs.find((i) => i.uid === selected) ?? candidates[Math.floor(Math.random() * candidates.length)] ?? xs[0];
+    const pool = variants(target);
+    if (!pool.length) {
+      toast("Für dieses Teil gibt es keine weitere Variante im Katalog.");
+      return;
+    }
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    const { oldP, newP } = swapPiece(target.uid, pick.product.id, [target.uid]);
+    if (oldP && newP) toast(`Gemischt: ${newP.title} statt ${oldP.title}`);
   }
 
   /**
@@ -659,6 +689,9 @@ export function Builder() {
           </span>
         </div>
         <div className="builder__actions">
+          <button type="button" className="btn btn--ghost btn--icon-text" onClick={exportImage} disabled={!items.length || exporting} title="PNG 4:5 mit Titel und Preis">
+            <Icon name="image" size={18} /> {exporting ? "Erstellt …" : "Als Bild"}
+          </button>
           <button type="button" className="btn btn--ghost" onClick={save} aria-describedby="builder-explain">
             {saveLabel}
           </button>
@@ -799,8 +832,8 @@ export function Builder() {
             >
               <Icon name="trash" /> <span className="tool__label">Leeren</span>
             </button>
-            <button type="button" className="tool" onClick={exportImage} disabled={!items.length || exporting}>
-              <Icon name="image" /> <span className="tool__label">{exporting ? "Wird erstellt …" : "Als Bild"}</span>
+            <button type="button" className="tool" onClick={shuffle} disabled={!items.length} title="Ein Teil gegen eine passende Variante tauschen">
+              <Icon name="sparkle" /> <span className="tool__label">Mischen</span>
             </button>
           </div>
 
@@ -877,6 +910,9 @@ export function Builder() {
                   </span>
                   {/* Phones: canvas actions live here because the toolbar above the canvas is gone. */}
                   <span className="idle-tools">
+                    <button type="button" className="tool" onClick={shuffle} disabled={!items.length}>
+                      <span className="tool__label">Mischen</span>
+                    </button>
                     <button type="button" className="tool" onClick={() => edit((xs) => autoArrange(xs, lookup))} disabled={!items.length}>
                       <span className="tool__label">Anordnen</span>
                     </button>

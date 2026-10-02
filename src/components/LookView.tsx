@@ -10,7 +10,9 @@ import { OCCASIONS, SEED_LOOKS } from "@/lib/seed-looks";
 import { encodeLook } from "@/lib/share";
 import { track } from "@/lib/track";
 import type { Backdrop, CanvasItem, Occasion } from "@/lib/types";
+import { PriceTicker } from "./builder/PriceTicker";
 import { ProductImage } from "./GarmentArt";
+import { LookPalette } from "./LookPalette";
 import { Icon } from "./Icon";
 import { LookTile } from "./LookTile";
 import { LookWindow } from "./LookWindow";
@@ -46,6 +48,33 @@ export function LookView({ look }: { look: ViewableLook }) {
   const code = encodeLook(look);
   const remixHref = look.kind === "beispiel" && look.id ? `/builder?look=${look.id}` : `/builder?d=${code}`;
   const more = SEED_LOOKS.filter((l) => l.id !== look.id).slice(0, 3);
+
+  /* «Habe ich schon»: pieces the person already owns drop out of the total. Kept per look in this browser. */
+  const ownKey = `kollage.v1.owned.${look.id ?? code.slice(0, 40)}`;
+  const [owned, setOwned] = useState<string[]>([]);
+  useEffect(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem(ownKey) || "[]");
+      setOwned(Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : []);
+    } catch {
+      setOwned([]);
+    }
+  }, [ownKey]);
+  function toggleOwned(productId: string) {
+    setOwned((cur) => {
+      const next = cur.includes(productId) ? cur.filter((x) => x !== productId) : [...cur, productId];
+      try {
+        localStorage.setItem(ownKey, JSON.stringify(next));
+      } catch {
+        /* storage blocked: works for this visit */
+      }
+      return next;
+    });
+  }
+  const toBuy = look.items.filter((i) => !owned.includes(i.productId));
+  const total = lookTotal(look.items);
+  const remaining = lookTotal(toBuy);
+  const mutedUids = look.items.filter((i) => owned.includes(i.productId)).map((i) => i.uid);
 
   useEffect(() => {
     track("look_viewed", { look: look.id ?? "geteilt", kind: look.kind });
@@ -85,6 +114,7 @@ export function LookView({ look }: { look: ViewableLook }) {
             priority
             onPieceActivate={setOpenUid}
             activePiece={openUid}
+            muted={mutedUids}
           />
           <p className="look-page__hint">Tippe ein Teil an, um Preis und Shop zu sehen.</p>
         </div>
@@ -114,6 +144,7 @@ export function LookView({ look }: { look: ViewableLook }) {
             {occasion} · {pieces(distinctCount(look.items))}
           </p>
           <p className="look-page__status">{KIND_LABEL[look.kind]}</p>
+          <LookPalette items={look.items} />
           {look.note && <p className="look-page__note">{look.note}</p>}
           {look.tip && (
             <p className="look-page__tip">
@@ -136,11 +167,13 @@ export function LookView({ look }: { look: ViewableLook }) {
           <ol className="buy-list">
             {rows.map((r) => {
               const others = r.product.offers.filter((o) => o.id !== r.offer.id);
+              const has = owned.includes(r.product.id);
               return (
                 <li
                   key={r.uid}
+                  data-reveal
                   id={`teil-${r.number}`}
-                  className={`buy-row ${lit === r.uid ? "is-lit" : ""}`}
+                  className={`buy-row ${lit === r.uid ? "is-lit" : ""} ${has ? "is-owned" : ""}`}
                   onPointerEnter={() => setLit(r.uid)}
                   onPointerLeave={() => setLit(null)}
                 >
@@ -193,15 +226,29 @@ export function LookView({ look }: { look: ViewableLook }) {
                       Zum Shop <Icon name="external" size={16} />
                       <span className="sr-only">: {r.product.title} bei {r.shop.name} (Partnerlink, neues Fenster)</span>
                     </a>
+                    <button type="button" className="own-toggle" aria-pressed={has} onClick={() => toggleOwned(r.product.id)}>
+                      <span className="own-toggle__box" aria-hidden="true">
+                        <Icon name="check" size={14} />
+                      </span>
+                      Habe ich schon<span className="sr-only">: {r.product.title}</span>
+                    </button>
                   </div>
                 </li>
               );
             })}
           </ol>
-          <p className="buy-total">
-            <span>Alles zusammen, günstigste Angebote</span>
-            <span className="num">{formatCHF(lookTotal(look.items))}</span>
-          </p>
+          <div className="buy-total" aria-live="polite">
+            <span>{owned.length ? `Noch zu kaufen, ${pieces(new Set(toBuy.map((i) => i.productId)).size)}` : "Alles zusammen, günstigste Angebote"}</span>
+            <PriceTicker value={remaining} />
+          </div>
+          {owned.length > 0 && (
+            <p className="buy-saved">
+              Schon im Schrank: <span className="num">{formatCHF(total - remaining)}</span> ·{" "}
+              <button type="button" className="text-btn" onClick={() => owned.forEach(toggleOwned)}>
+                Zurücksetzen
+              </button>
+            </p>
+          )}
           <p className="fineprint">
             Partnerlinks: Für bestätigte Käufe erhält Kollage eine Provision vom Händler. Preise, Lieferzeiten und Verfügbarkeit gelten beim Händler. Diese
             Werte stammen aus dem Demo-Katalog und sind Beispiele.
@@ -210,7 +257,7 @@ export function LookView({ look }: { look: ViewableLook }) {
       </div>
 
       <section className="section" aria-labelledby="more-title">
-        <div className="section__head">
+        <div className="section__head" data-reveal>
           <h2 id="more-title" className="section__title section__title--sm">
             Mehr Looks
           </h2>
@@ -228,9 +275,9 @@ export function LookView({ look }: { look: ViewableLook }) {
       {/* Phones (e.g. arriving from a video): price and the two next steps always in reach. */}
       <div className="look-buybar">
         <p className="look-buybar__sum">
-          <span className="num">{formatCHF(lookTotal(look.items))}</span>
+          <PriceTicker value={remaining} />
           <span>
-            {pieces(distinctCount(look.items))} · Demo-Preise
+            {owned.length ? `noch zu kaufen · ${pieces(new Set(toBuy.map((i) => i.productId)).size)}` : `${pieces(distinctCount(look.items))} · Demo-Preise`}
           </span>
         </p>
         <a href="#teile" className="btn btn--ghost btn--sm">

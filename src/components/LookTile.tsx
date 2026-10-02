@@ -4,6 +4,7 @@ import { distinctCount, lookTotal } from "@/lib/look";
 import { OCCASIONS } from "@/lib/seed-looks";
 import type { Look } from "@/lib/types";
 import { FavoriteButton } from "./FavoriteButton";
+import { LookPalette } from "./LookPalette";
 import { LookWindow } from "./LookWindow";
 
 /**
@@ -24,7 +25,7 @@ export function LookTile({
   const H = `h${headingLevel}` as "h2" | "h3";
   const occasion = OCCASIONS.find((o) => o.id === look.occasion)?.label;
   return (
-    <article className={`look-tile look-tile--${size}`}>
+    <article className={`look-tile look-tile--${size}`} data-reveal>
       <Link href={`/look/${look.id}`} className="look-tile__link">
         <LookWindow items={look.items} backdrop={look.backdrop} frame="thin" width={{ phoneVw: 92, px: 390 }} />
         <div className="look-tile__caption">
@@ -32,6 +33,7 @@ export function LookTile({
           <p className="look-tile__meta">
             {occasion} · {pieces(distinctCount(look.items))} · <span className="num">{formatCHF(lookTotal(look.items))}</span>
           </p>
+          <LookPalette items={look.items} size="sm" />
           {showTip && look.tip && <p className="look-tile__tip">{look.tip}</p>}
           <p className="look-tile__by">{look.isExample ? "Redaktion · Demo-Katalog" : `von ${look.authorName}`}</p>
         </div>

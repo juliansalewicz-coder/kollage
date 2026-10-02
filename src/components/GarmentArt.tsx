@@ -1,3 +1,5 @@
+"use client";
+
 import { useId } from "react";
 import { GARMENTS, mix, resolveTones, type CircleLayer, type Layer, type PathLayer } from "@/lib/garments";
 import type { Product } from "@/lib/types";
@@ -25,6 +27,11 @@ export function ProductImage({
 }) {
   // Measured on a throttled phone: fetchpriority="high" on several pieces delayed CSS and the first paint, so priority means eager only.
   const loading = priority ? "eager" : "lazy";
+  // Pictures that are still loading after the page is interactive fade in; ones already there stay as they are.
+  const fadeRef = (el: HTMLImageElement | null) => {
+    if (el && !el.complete) el.classList.add("is-pending");
+  };
+  const onLoad = (e: React.SyntheticEvent<HTMLImageElement>) => e.currentTarget.classList.remove("is-pending");
   const img = product.image;
   if (img.type === "render") {
     const small = img.src.replace("/products/", "/products/sm/");
@@ -32,6 +39,8 @@ export function ProductImage({
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
+        ref={fadeRef}
+        onLoad={onLoad}
         className={className}
         src={small}
         srcSet={`${small} ${smallW}w, ${img.src} ${img.width}w`}
@@ -47,7 +56,7 @@ export function ProductImage({
   }
   if (img.type === "retailer") {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img className={className} src={img.src} width={img.width} height={img.height} alt="" draggable={false} loading={loading} decoding="async" />;
+    return <img ref={fadeRef} onLoad={onLoad} className={className} src={img.src} width={img.width} height={img.height} alt="" draggable={false} loading={loading} decoding="async" />;
   }
   return <GarmentSvg product={product} className={className} />;
 }
