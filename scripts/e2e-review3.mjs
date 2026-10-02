@@ -145,6 +145,26 @@ export async function review3({ run, base, out, draft }) {
     { allow: [/404/, /Failed to load resource/] },
   );
 
+  await run(
+    "r8-image-early-error",
+    { width: 390, height: 844 },
+    async (page) => {
+      // Fails before React is ready: the error event is gone, the ref sees a broken picture instead.
+      await page.route(/\/products\/(sm\/)?trench[^/]*$/, (route) => route.fulfill({ status: 404, body: "" }));
+      await page.goto(base + "/look/herbst-in-bern");
+      await page.waitForLoadState("networkidle");
+      await page.locator(".look-page__window .img-fallback").first().waitFor({ timeout: 5000 });
+      const broken = await page.evaluate(() => [...document.querySelectorAll(".look-page__window img")].filter((i) => i.complete && i.naturalWidth === 0).length);
+      if (broken) throw new Error(`${broken} broken pictures left in the collage`);
+    },
+    { allow: [/404/, /Failed to load resource/] },
+  );
+
+  await run("r8-builder-bad-link", { width: 1440, height: 900 }, async (page) => {
+    await page.goto(base + "/builder?d=kaputt");
+    await page.locator(".toast", { hasText: "keinen gültigen Look" }).waitFor();
+  });
+
   await run("r8-export-size", { width: 1440, height: 900 }, async (page) => {
     await page.goto(base + "/builder?look=herbst-in-bern");
     await page.locator(".piece--edit").nth(5).waitFor();

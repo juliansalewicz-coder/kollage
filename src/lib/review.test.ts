@@ -74,3 +74,16 @@ describe("store consistency", () => {
     expect(getOwned()).toEqual([]);
   });
 });
+
+describe("save status", () => {
+  it("never claims saved when storage is blocked, and tells drafts from saved looks", async () => {
+    const { saveStatus } = await import("./save-status");
+    const base = { blocked: false, pieces: 3, savedLook: false, published: false, draftSaved: true };
+    expect(saveStatus({ ...base, blocked: true }).tone).toBe("warn");
+    expect(saveStatus({ ...base, pieces: 0 }).text).toBe("Leere Leinwand");
+    expect(saveStatus(base).text).toBe("Entwurf in diesem Browser gesichert");
+    expect(saveStatus({ ...base, savedLook: true }).short).toBe("In «Meine Looks»");
+    expect(saveStatus({ ...base, savedLook: true, published: true }).text).toBe("Veröffentlicht, alles gespeichert");
+    expect(saveStatus({ ...base, draftSaved: null }).tone).toBe("muted");
+  });
+});

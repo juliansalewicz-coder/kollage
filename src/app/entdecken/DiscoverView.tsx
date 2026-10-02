@@ -102,7 +102,7 @@ export function DiscoverView() {
           <input
             id="look-search"
             type="search"
-            placeholder="Suche nach Titel oder Teil, z. B. Trench"
+            placeholder="Suche, z. B. Trench oder Büro"
             value={text}
             onChange={(e) => {
               setText(e.target.value);

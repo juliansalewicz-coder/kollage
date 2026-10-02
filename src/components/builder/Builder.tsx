@@ -29,6 +29,7 @@ import { decodeLook } from "@/lib/share";
 import { track } from "@/lib/track";
 import { renderLookImage, shareOrDownload } from "@/lib/export-image";
 import { PUBLISH_LOGIN_REASON, PUBLISH_MESSAGES, publishProblems } from "@/lib/publish";
+import { saveStatus } from "@/lib/save-status";
 import {
   archiveDraft,
   getArchivedDrafts,
@@ -237,6 +238,7 @@ export function Builder() {
     } else if (data) {
       const shared = decodeLook(data, (id) => Boolean(getProduct(id)));
       if (shared) next = { ...shared, items: shared.items.map((it) => ({ ...it, uid: newUid() })), note: "", lookId: null, basedOn: null };
+      else toast("Dieser Link enthält keinen gültigen Look. Deine Leinwand bleibt unverändert.");
       label = "den geteilten Look";
     }
     if (fresh) {
@@ -471,19 +473,7 @@ export function Builder() {
   /* What is saved where. Only claims "gesichert" after a write that really succeeded. */
   const unsaved = draftNeedsGuard(state, looks);
   const blocked = storageStatus === "sitzung" || draftSaved === false;
-  const status: { tone: "ok" | "warn" | "muted"; text: string; detail: string } = blocked
-    ? { tone: "warn", text: "Nicht gesichert: Browserspeicher blockiert", detail: "Änderungen gehen beim Schliessen des Tabs verloren." }
-    : !items.length
-      ? { tone: "muted", text: "Leere Leinwand", detail: "Sobald ein Teil darauf liegt, wird dein Entwurf in diesem Browser gesichert." }
-      : ownLook && !unsaved
-        ? { tone: "ok", text: isPublished ? "Veröffentlicht, alles gespeichert" : "Gespeichert in «Meine Looks»", detail: "" }
-        : draftSaved
-          ? {
-              tone: "ok",
-              text: "Entwurf in diesem Browser gesichert",
-              detail: isPublished ? "Änderungen sind noch nicht veröffentlicht." : "Noch nicht in «Meine Looks» gespeichert.",
-            }
-          : { tone: "muted", text: "Entwurf wird gesichert …", detail: "" };
+  const status = saveStatus({ blocked, pieces: items.length, savedLook: Boolean(ownLook) && !unsaved, published: isPublished, draftSaved });
   const saveLabel = isPublished ? "Änderungen veröffentlichen" : "Speichern";
   /** Order of the work: edit, save, then share or publish. Until the look is saved, saving is the main action. */
   const saveFirst = unsaved || !ownLook;
@@ -496,16 +486,10 @@ export function Builder() {
   /** One line under the desktop status: what the two buttons add to the automatic draft. */
   const explain = session ? "Alles bleibt in diesem Browser." : "Speichern ohne Anmeldung, nur in diesem Browser.";
 
-  const short: Record<string, string> = {
-    "Entwurf in diesem Browser gesichert": "Entwurf gesichert",
-    "Nicht gesichert: Browserspeicher blockiert": "Nicht gesichert",
-    "Gespeichert in «Meine Looks»": "In «Meine Looks»",
-    "Veröffentlicht, alles gespeichert": "Veröffentlicht",
-  };
   const statusLine = (brief = false) => (
     <span className={`save-status is-${status.tone}`} role="status">
       <Icon name={status.tone === "warn" ? "lock" : status.tone === "ok" ? "check" : "edit"} size={16} />
-      <span>{brief ? (short[status.text] ?? status.text) : status.text}</span>
+      <span>{brief ? status.short : status.text}</span>
     </span>
   );
 

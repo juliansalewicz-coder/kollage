@@ -36,8 +36,10 @@ node scripts/perf.mjs http://localhost:3200   # Labormessung gedrosseltes Handy 
 - **Builder:** Teil ersetzen (mit Wirkung auf den Gesamtpreis), «Variante» für das gewählte Teil bzw. «Zufällig tauschen» ohne Auswahl, Favoriten, Budget mit Sparvorschlag, «Als Bild» (PNG 1080 × 1350, 4:5, mit Titel und Preis). Auf dem Handy: «Dein Look»-Sheet mit «Speichern & schliessen».
 - **Fehlerfälle:** Ein Produktbild, das nicht lädt, wird durch die gezeichnete Silhouette in seiner Farbe ersetzt. Ein abgebrochenes Teilen bleibt ruhig und zählt nicht als geteilt. Galerie und Produktsheet folgen dem Breakpoint auch beim Drehen oder Verbreitern ohne Neuladen.
 
-Tests: `npm test` (41 Unit-Tests), `node scripts/e2e.mjs` (Browser-Szenarien bei 360, 390, 768, 800, 1100 und 1440 px; einzelne Gruppen mit `ONLY=r8`).
+Tests: `npm test` (42 Unit-Tests), `node scripts/e2e.mjs` (Browser-Szenarien bei 360, 390, 768, 800, 1100 und 1440 px; einzelne Gruppen mit `ONLY=r8`).
 Produktions-Build neben laufendem Dev-Server: `NEXT_DIST_DIR=.next-build npx next build`.
+
+Messung (2.10.2026, `scripts/perf.mjs`, Produktions-Build lokal, 390 px, DPR 3, 1,6 Mbit/s, CPU ×4, je drei Läufe): Bilder Startseite 912 → 730 KB, Look-Seite 567 → 428 KB, nachdem Kauflisten-Thumbnails und Produktkarten nicht mehr die 900-px-Variante laden. Layoutverschiebung überall 0. Die Zeiten (LCP) schwanken auf dem Messrechner stark (Startseite 3,3–3,7 s, Look-Seite 4,5–7,6 s mit gleichem FCP-Ausschlag) und sind keine Feldwerte. Der Builder zeigt die Leinwand erst nach dem Laden des JavaScripts (LCP 4,3–5,8 s); ein serverseitig gerendertes Startbild der Leinwand wäre der nächste Hebel.
 
 ## Bedienung im Builder
 

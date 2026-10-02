@@ -35,7 +35,7 @@ export default async function ExitPage({ params, searchParams }: { params: Promi
         <p className="look-page__meta">Demo-Angebot ohne echten Shop</p>
         <div className="exit__product">
           <div className="buy-row__thumb" aria-hidden="true">
-            <ProductImage product={product} className="buy-row__img" />
+            <ProductImage product={product} className="buy-row__img" sizes="64px" />
           </div>
           <div>
             <p className="inspector__name">{product.title}</p>

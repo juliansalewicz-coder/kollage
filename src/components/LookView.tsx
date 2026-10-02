@@ -172,7 +172,7 @@ export function LookView({ look }: { look: ViewableLook }) {
                     {r.number}
                   </span>
                   <div className="buy-row__thumb" aria-hidden="true">
-                    <ProductImage product={r.product} className="buy-row__img" />
+                    <ProductImage product={r.product} className="buy-row__img" sizes="64px" />
                   </div>
                   <div className="buy-row__text">
                     <h3 className="buy-row__title">{r.product.title}</h3>
