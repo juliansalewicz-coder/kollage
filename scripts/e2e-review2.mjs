@@ -101,9 +101,9 @@ export async function review2({ run, base, out, draft }) {
       const tools = await page.getByRole("toolbar", { name: "Ausgewähltes Teil" }).boundingBox();
       if (tools.y + tools.height > vp.height) throw new Error("tools below the screen");
       // Publishing without a title opens the save sheet with focus in the title field.
-      await page.locator(".mbar__save").tap();
+      await page.locator(".mbar__look").tap();
       const sheet = page.locator("dialog.sheet[open]");
-      await sheet.getByRole("heading", { name: "Look speichern" }).waitFor();
+      await sheet.getByRole("heading", { name: "Dein Look" }).waitFor();
       await sheet.locator("#sheet-look-title").fill("");
       await sheet.getByRole("button", { name: /Anmelden & veröffentlichen/ }).tap();
       await sheet.getByText("Gib dem Look einen Titel").waitFor();
@@ -130,7 +130,7 @@ export async function review2({ run, base, out, draft }) {
     await page.getByRole("toolbar", { name: "Ausgewähltes Teil" }).getByRole("button", { name: "Ersetzen" }).click();
     await page.locator("dialog.sheet[open] .alt-row").first().click();
     await page.locator(".piece--edit.fx-swap .piece__ghost").waitFor({ timeout: 2000 });
-    await page.locator(".lookbar .ticker__delta, .budget__lines .ticker__delta").first().waitFor({ state: "attached", timeout: 2000 });
+    await page.locator(".ticker__delta").first().waitFor({ state: "attached", timeout: 2000 });
     await page.waitForTimeout(900);
     if (await page.locator(".piece__ghost").count()) throw new Error("ghost not cleaned up");
   });

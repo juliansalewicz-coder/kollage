@@ -47,7 +47,7 @@ export default function HomePage() {
 
       <section className="section section--shop" aria-labelledby="pieces-title">
         <div className="wrap">
-          <div className="section__head" data-reveal>
+          <div className="section__head">
             <h2 id="pieces-title" className="headline">
               Die Teile von «{hero.title}»
             </h2>
@@ -61,7 +61,7 @@ export default function HomePage() {
 
       <section className="section section--related" aria-labelledby="styles-title">
         <div className="wrap">
-          <div className="section__head" data-reveal>
+          <div className="section__head">
             <h2 id="styles-title" className="headline">
               Wofür ziehst du dich an?
             </h2>
@@ -71,7 +71,7 @@ export default function HomePage() {
           </div>
           <ul className="entries">
             {entries.map((e) => (
-              <li key={e.id} data-reveal>
+              <li key={e.id}>
                 <Link href={e.href} className="entry">
                   <LookWindow items={e.look.items} backdrop={e.look.backdrop} frame="thin" className="entry__window" width={{ phoneVw: 45, px: 290 }} />
                   <span className="entry__text">
@@ -88,7 +88,7 @@ export default function HomePage() {
 
       <section className="section section--tint" aria-labelledby="picks-title">
         <div className="wrap">
-          <div className="section__head" data-reveal>
+          <div className="section__head">
             <h2 id="picks-title" className="headline">
               Aus der Redaktion
             </h2>

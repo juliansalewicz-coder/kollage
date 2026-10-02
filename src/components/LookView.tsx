@@ -171,7 +171,7 @@ export function LookView({ look }: { look: ViewableLook }) {
               return (
                 <li
                   key={r.uid}
-                  data-reveal
+
                   id={`teil-${r.number}`}
                   className={`buy-row ${lit === r.uid ? "is-lit" : ""} ${has ? "is-owned" : ""}`}
                   onPointerEnter={() => setLit(r.uid)}
@@ -257,7 +257,7 @@ export function LookView({ look }: { look: ViewableLook }) {
       </div>
 
       <section className="section" aria-labelledby="more-title">
-        <div className="section__head" data-reveal>
+        <div className="section__head">
           <h2 id="more-title" className="section__title section__title--sm">
             Mehr Looks
           </h2>

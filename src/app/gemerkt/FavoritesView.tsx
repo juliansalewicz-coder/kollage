@@ -44,7 +44,7 @@ export function FavoritesView() {
               const offer = bestOffer(p);
               const shop = getShop(offer.shopId);
               return (
-                <li key={p.id} className="fav-product" data-reveal>
+                <li key={p.id} className="fav-product">
                   <div className="fav-product__media" aria-hidden="true">
                     <ProductImage product={p} className="fav-product__img" sizes="160px" />
                   </div>

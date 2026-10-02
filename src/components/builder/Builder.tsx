@@ -75,6 +75,7 @@ export function Builder() {
     return isolate(drawerRef.current, scrim ? [scrim] : []);
   }, [drawerOpen]);
   const [replaceFor, setReplaceFor] = useState<string | null>(null);
+  const fromBudget = useRef(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [lookOpen, setLookOpen] = useState(false);
   /** Phones: title, saving and publishing live in one sheet instead of a tall bar above the canvas. */
@@ -318,6 +319,8 @@ export function Builder() {
     const uid = replaceFor;
     if (!uid) return;
     const { oldP, newP } = swapPiece(uid, productId, uids);
+    if (fromBudget.current) setSelected(null);
+    fromBudget.current = false;
     setReplaceFor(null);
     setMoreOpen(false);
     if (oldP && newP) toast(`${uids.length > 1 ? `${uids.length}× ` : ""}${oldP.title} ersetzt durch ${newP.title}. «Rückgängig» stellt es wieder her.`);
@@ -468,7 +471,7 @@ export function Builder() {
   const publishHint = session ? "Zeigt den Look mit eigener Seite unter «Entdecken»." : "Zeigt den Look unter «Entdecken». Dafür brauchst du einen Namen (Demo-Anmeldung).";
   const demoHint = "Alles bleibt in diesem Browser und wird nicht zwischen Geräten abgeglichen. Die Anmeldung ist eine Demo ohne echtes Konto.";
   /** One line under the desktop status: what the two buttons add to the automatic draft. */
-  const explain = `Speichern legt den Look in «Meine Looks», ohne Anmeldung. Veröffentlichen zeigt ihn unter «Entdecken»${session ? "" : " und fragt nach einem Namen"}. Nur in diesem Browser.`;
+  const explain = session ? "Alles bleibt in diesem Browser." : "Speichern ohne Anmeldung, nur in diesem Browser.";
 
   const short: Record<string, string> = {
     "Entwurf in diesem Browser gesichert": "Entwurf gesichert",
@@ -537,7 +540,6 @@ export function Builder() {
         item={selItem}
         product={selProduct}
         idPrefix={prefix}
-        onReplace={() => setReplaceFor(selItem.uid)}
         onStart={checkpoint}
         onScale={(w) => preview((s) => ({ ...s, items: updateItem(s.items, selItem.uid, { w }) }))}
         onRotate={(rotation) => preview((s) => ({ ...s, items: updateItem(s.items, selItem.uid, { rotation }) }))}
@@ -568,7 +570,8 @@ export function Builder() {
                 title: saving.product.title,
                 saving: saving.saving,
                 run: () => {
-                  setSelected(saving.item.uid);
+                  // Started from the budget: after the swap the budget stays in view (no switch to the piece panel).
+                  fromBudget.current = true;
                   setLookOpen(false);
                   setReplaceFor(saving.item.uid);
                 },
@@ -689,8 +692,15 @@ export function Builder() {
           </span>
         </div>
         <div className="builder__actions">
-          <button type="button" className="btn btn--ghost btn--icon-text" onClick={exportImage} disabled={!items.length || exporting} title="PNG 4:5 mit Titel und Preis">
-            <Icon name="image" size={18} /> {exporting ? "Erstellt …" : "Als Bild"}
+          <button
+            type="button"
+            className="btn btn--ghost btn--square"
+            onClick={exportImage}
+            disabled={!items.length || exporting}
+            aria-label="Als Bild speichern"
+            title="Als Bild speichern (PNG 4:5 mit Titel und Preis)"
+          >
+            <Icon name="image" size={20} />
           </button>
           <button type="button" className="btn btn--ghost" onClick={save} aria-describedby="builder-explain">
             {saveLabel}
@@ -710,7 +720,7 @@ export function Builder() {
 
       {/* Phones: one compact row. Title, saving and publishing open in a sheet. */}
       <div className="mbar">
-        <button type="button" className="mbar__look" onClick={() => setSaveOpen(true)} aria-haspopup="dialog" aria-label={`Look «${state.title.trim() || "ohne Titel"}»: Titel, Speichern und Veröffentlichen. ${status.text}`}>
+        <button type="button" className="mbar__look" onClick={() => setSaveOpen(true)} aria-haspopup="dialog" aria-label={`Look «${state.title.trim() || "ohne Titel"}»: Titel, Veröffentlichen, Als Bild und Details. ${status.text}`}>
           <span className="mbar__title">
             {state.title.trim() || "Look ohne Titel"} <Icon name="edit" size={14} />
           </span>
@@ -722,8 +732,8 @@ export function Builder() {
         <button type="button" className="tool tool--icon" onClick={redo} disabled={!canRedo} aria-label="Wiederholen">
           <Icon name="redo" />
         </button>
-        <button type="button" className="btn btn--primary btn--sm mbar__save" onClick={() => setSaveOpen(true)} aria-haspopup="dialog">
-          Speichern
+        <button type="button" className="btn btn--primary btn--sm mbar__save" onClick={save}>
+          {isPublished ? "Aktualisieren" : "Speichern"}
         </button>
       </div>
       {formError && (
@@ -732,17 +742,13 @@ export function Builder() {
         </p>
       )}
 
-      <Sheet open={saveOpen} onClose={() => setSaveOpen(false)} title="Look speichern" className="sheet--compact sheet--save" initialFocus={titleError ? "#sheet-look-title" : undefined}>
+      <Sheet open={saveOpen} onClose={() => setSaveOpen(false)} title="Dein Look" className="sheet--compact sheet--save" initialFocus={titleError ? "#sheet-look-title" : undefined}>
         {titleField("sheet-look-title")}
         <div className="save-box">
           {statusLine()}
           {status.detail && <span className="save-status__detail">{status.detail}</span>}
         </div>
         <div className="save-actions">
-          <button type="button" className="save-action" onClick={save}>
-            <span className="save-action__label">{saveLabel}</span>
-            <span className="save-action__hint">{saveHint}</span>
-          </button>
           {!isPublished && (
             <button type="button" className="save-action save-action--primary" onClick={publish}>
               <span className="save-action__label">{publishLabel}</span>
@@ -870,21 +876,9 @@ export function Builder() {
                     <Icon name={favSelected ? "heartFilled" : "heart"} />
                     <span className="tool__label">{favSelected ? "Gemerkt" : "Merken"}</span>
                   </button>
-                  <button type="button" className="tool tool--minor" onClick={() => edit((xs) => scaleItem(xs, selItem.uid, 1 / 1.1))} aria-label="Kleiner">
-                    <Icon name="shrink" />
-                    <span className="tool__label">Kleiner</span>
-                  </button>
-                  <button type="button" className="tool tool--minor" onClick={() => edit((xs) => scaleItem(xs, selItem.uid, 1.1))} aria-label="Grösser">
-                    <Icon name="grow" />
-                    <span className="tool__label">Grösser</span>
-                  </button>
                   <button type="button" className="tool" onClick={() => edit((xs) => rotateItem(xs, selItem.uid, 10))} aria-label="Drehen">
                     <Icon name="rotateRight" />
                     <span className="tool__label">Drehen</span>
-                  </button>
-                  <button type="button" className="tool tool--minor" onClick={() => edit((xs) => layerItem(xs, selItem.uid, "forward"))} aria-label="Eine Ebene nach vorne">
-                    <Icon name="layerUp" />
-                    <span className="tool__label">Nach vorne</span>
                   </button>
                   <button
                     type="button"
@@ -955,17 +949,32 @@ export function Builder() {
           </div>
         </section>
 
-        <aside id="panel-fenster" className="builder__side panel" aria-label="Teil, Budget und Look">
-          {budgetPanel("side")}
-          {selItem && selProduct && (
-            <section className="side-block" aria-labelledby="insp-title">
-              <h2 id="insp-title" className="panel__title">
-                Ausgewähltes Teil
-              </h2>
-              {inspector("side")}
-            </section>
+        {/* One panel, two states: the selected piece, or the look (budget, pieces, details). */}
+        <aside id="panel-fenster" className="builder__side panel" aria-label={selItem ? "Ausgewähltes Teil" : "Budget und Look"}>
+          {selItem && selProduct ? (
+            <>
+              <button type="button" className="side-back" onClick={() => setSelected(null)}>
+                <Icon name="chevronRight" size={16} className="side-back__icon" />
+                <span>Look</span>
+                <span className="side-back__sum">
+                  <PriceTicker value={summary.productValue} resetKey={loadKey} />
+                  {summary.remaining !== null && (
+                    <span className={summary.remaining < 0 ? "is-over" : ""}>
+                      {summary.remaining < 0 ? `${formatCHF(-summary.remaining)} über Budget` : `Rest ${formatCHF(summary.remaining)}`}
+                    </span>
+                  )}
+                </span>
+              </button>
+              <section className="side-block" aria-labelledby="insp-title">
+                <h2 id="insp-title" className="panel__title">
+                  Ausgewähltes Teil
+                </h2>
+                {inspector("side")}
+              </section>
+            </>
+          ) : (
+            lookPanel("side")
           )}
-          {lookPanel("side", false)}
         </aside>
       </div>
     </div>

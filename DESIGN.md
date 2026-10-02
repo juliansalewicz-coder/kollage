@@ -55,7 +55,8 @@ There is no accent colour. `--accent*` tokens still exist for older rules and re
 - Product card: picture contained on `--bg-2` (3:4, 12% padding), then name (14px/500), colour · shop (12px muted), price (14px/600). Hover: picture scales 4%, name underlined. Heart top right, outside the card button.
 - Collages are 4:5 everywhere, on `--bg-2`; editorial looks use the same backdrop. Card hover underlines the title, nothing moves.
 - Start page: composed hero look with its action directly below, then «Die Teile von …» as shop cards (a row to swipe on phones), entries by occasion, editorial looks (a row to swipe on phones).
-- Look page: on phones a sticky bar with total, «Teile» and «Anpassen».
+- Look page: on phones a sticky bar with total, «Teile» and «Anpassen» (the page row then shows only Teilen and Merken); «Mehr Looks» is a swipe row.
+- Entdecken on phones: two columns, title, meta and palette only.
 - Colour palette: the colour families of a look as overlapping swatches (18px on the look page with names, 11px on tiles), in shopping-list order.
 - «Habe ich schon»: per piece on the look page; owned pieces fade in the list and the collage, the total becomes «Noch zu kaufen» and the buy bar follows. Stored per look in this browser.
 - Demo honesty: «Demo-Preise» next to the hero total, «Beispielpreise aus dem Demo-Katalog» above the product row, demo labels in details.
@@ -85,8 +86,11 @@ Saving needs no sign-in: every look saved in this browser is listed under «Mein
 ## Builder
 
 - Desk `--bg-2`, panels white with a hairline, canvas with a hairline.
-- Desktop: bar (title, status with a one-line explanation, save actions), three columns (products 300px, canvas, side panel 280px), canvas plus one-row toolbar fit 1440×900; side panel order Budget, selected piece, pieces, details.
-- Phones: compact bar (title and status, undo, redo, «Speichern» opens the save sheet), sticky dock (selection tools or Anordnen/Leeren, plus «Produkte» and the budget bar). The product drawer is modal (inert background, Escape, focus return) and does not open the keyboard on touch screens.
+- Desktop: bar (title, status with one short line, image icon, Speichern, Veröffentlichen), three columns (products 300px, canvas, side panel 280px), canvas plus one-row toolbar fit 1440×900.
+- One place per action: quick actions on the selected piece (Ersetzen, Merken, Drehen, Entfernen) only in the toolbar under the canvas; size and layer via handles and the inspector; no duplicates.
+- Side panel follows the selection: nothing selected shows the look (budget, pieces, details); a selected piece shows its inspector with a «‹ Look» row on top that keeps the total and budget state in view. A saving suggestion started from the budget returns to the look after the swap.
+- Product gallery: search, categories, colours, then «Gemerkt» as a filter chip next to the price filter; the demo note sits at the end of the list.
+- Phones: compact bar (title and status opens the «Dein Look» sheet with title, publish, image and details; undo; redo; «Speichern» saves directly), sticky dock (selection tools or Anordnen/Leeren, plus «Produkte» and the budget bar). The product drawer is modal (inert background, Escape, focus return) and does not open the keyboard on touch screens.
 - Saving suggestion and replace sheet judge alternatives by the change of the whole look total («Look −60.00»); duplicates are swapped together.
 - Direct manipulation (`gesture.ts`): during a drag, scale or rotate only the piece's `transform` and the selection frame are written, once per animation frame; layout is measured once at the start; React state changes once at the end (one undo step). Touch: a second finger anywhere on the canvas turns the drag into a pinch (distance scales, angle rotates, midpoint moves). Trackpad pinch (ctrl + wheel) scales the selected piece, committed 200 ms after the last wheel event. Centre lines snap within 7 px with a 1px guide at 45 % ink and a 6 ms vibration where supported; rotation snaps within 4° to multiples of 45°.
 - «Als Bild»: PNG 1080 × 1470 (4:5 collage plus a white strip with title, total «Beispielpreise» and KOLLAGE); system share sheet on touch devices, download elsewhere.

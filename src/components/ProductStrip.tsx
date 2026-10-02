@@ -21,7 +21,7 @@ export function ProductStrip({ look }: { look: Look }) {
     <>
       <ul className="pstrip">
         {rows.map((r) => (
-          <li key={r.uid} className="pstrip__item" data-reveal>
+          <li key={r.uid} className="pstrip__item">
             <button type="button" className="pcard" onClick={() => setOpenUid(r.uid)} aria-haspopup="dialog">
               <span className="pcard__media">
                 <ProductImage product={r.product} className="pcard__img" sizes="(max-width: 767px) 42vw, 190px" />

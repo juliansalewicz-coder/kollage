@@ -25,7 +25,7 @@ export function LookTile({
   const H = `h${headingLevel}` as "h2" | "h3";
   const occasion = OCCASIONS.find((o) => o.id === look.occasion)?.label;
   return (
-    <article className={`look-tile look-tile--${size}`} data-reveal>
+    <article className={`look-tile look-tile--${size}`}>
       <Link href={`/look/${look.id}`} className="look-tile__link">
         <LookWindow items={look.items} backdrop={look.backdrop} frame="thin" width={{ phoneVw: 92, px: 390 }} />
         <div className="look-tile__caption">
