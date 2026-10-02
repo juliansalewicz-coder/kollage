@@ -87,17 +87,6 @@ export function Gallery({
           Fertig
         </button>
       </div>
-      <p className="gallery__demo">Demo-Katalog · Demo-Renderings, keine angebotenen Artikel</p>
-
-      <div className="segmented" role="group" aria-label="Auswahl">
-        <button type="button" aria-pressed={scope === "alle"} onClick={() => setScope("alle")}>
-          Alle
-        </button>
-        <button type="button" aria-pressed={scope === "gemerkt"} onClick={() => setScope("gemerkt")}>
-          <Icon name="heart" size={16} /> Gemerkt <span className="num">{favs.products.length}</span>
-        </button>
-      </div>
-
       <div className="field field--search">
         <label htmlFor="product-search" className="sr-only">
           Produkte durchsuchen
@@ -140,6 +129,14 @@ export function Gallery({
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          className="chip chip--fav"
+          aria-pressed={scope === "gemerkt"}
+          onClick={() => setScope(scope === "gemerkt" ? "alle" : "gemerkt")}
+        >
+          <Icon name={scope === "gemerkt" ? "heartFilled" : "heart"} size={15} /> Gemerkt <span className="num">{favs.products.length}</span>
+        </button>
         <div className="field field--inline">
           <label htmlFor="price-cap" className="sr-only">
             Preis
@@ -214,6 +211,7 @@ export function Gallery({
           </button>
         </div>
       )}
+      <p className="gallery__demo">Demo-Katalog: Beispielpreise und KI-Renderings, keine angebotenen Artikel.</p>
     </div>
   );
 }

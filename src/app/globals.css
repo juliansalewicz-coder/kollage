@@ -5252,27 +5252,6 @@ p {
   font-weight: 600;
 }
 
-/* Scroll reveal without JavaScript: cards and rows glide in as they enter the viewport.
-   Where scroll-driven animations are not supported, content is simply there. */
-@media (prefers-reduced-motion: no-preference) {
-  @supports (animation-timeline: view()) {
-    [data-reveal] {
-      animation: rise linear both;
-      animation-timeline: view();
-      animation-range: entry 0% entry 55%;
-    }
-    [data-reveal]:nth-child(2) {
-      animation-range: entry 5% entry 62%;
-    }
-    [data-reveal]:nth-child(3) {
-      animation-range: entry 10% entry 69%;
-    }
-    [data-reveal]:nth-child(4) {
-      animation-range: entry 15% entry 76%;
-    }
-  }
-}
-
 @media (max-width: 767px) {
   /* Look page rows on phones: price and shop on one line, «Habe ich schon» below. */
   .buy-row__buy {
@@ -5298,5 +5277,206 @@ p {
   }
   .stage-dock .idle-tools {
     gap: 8px;
+  }
+}
+
+/* =========================================================================
+   UX logic pass: one place per action, panels that follow the selection,
+   fewer stacked controls.
+   ========================================================================= */
+
+/* Builder side panel in piece mode: the way back to the look, with its total. */
+.side-back {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 6px;
+  width: calc(100% + 36px);
+  margin: -18px -18px 4px;
+  padding: 12px 18px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  transition: background-color 160ms var(--ease);
+}
+
+.side-back:hover {
+  background: var(--bg-2);
+}
+
+.side-back__icon {
+  rotate: 180deg;
+}
+
+.side-back__sum {
+  display: grid;
+  justify-items: end;
+  font-weight: 400;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.side-back__sum .ticker {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.side-back__sum .is-over {
+  color: var(--danger);
+}
+
+/* Inspector: what it is, what it costs, then adjustments in calm groups. */
+.inspector {
+  gap: 16px;
+  padding-bottom: 4px;
+  border-bottom: 0;
+}
+
+.inspector__info {
+  display: grid;
+  gap: 1px;
+  align-content: center;
+  min-height: 64px;
+}
+
+.inspector__price {
+  margin-top: 2px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.inspector__shop {
+  margin: -4px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.inspector__shop .link-arrow {
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.inspector__group {
+  display: grid;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.inspector__label {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.inspector__pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.inspector__pair .btn,
+.inspector__dup {
+  width: 100%;
+}
+
+/* Square icon button (e.g. «Als Bild» in the builder bar). */
+.btn--square {
+  width: 46px;
+  padding: 0;
+}
+
+/* Gallery: «Gemerkt» is a filter like the others, not a separate mode switch. */
+.chip--fav {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.chip--fav[aria-pressed="true"] svg {
+  color: #fff;
+}
+
+.gallery__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+}
+
+.gallery__demo {
+  margin: 16px 0 0;
+  text-align: center;
+}
+
+/* Look page on phones: the sticky bar carries «Anpassen», so the page row keeps only Teilen and Merken. */
+@media (max-width: 767px) {
+  .look-page__actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .look-page__actions .btn--primary {
+    display: none;
+  }
+  .look-page__actions .btn,
+  .look-page__actions .fav {
+    width: 100%;
+  }
+}
+
+@media (max-width: 767px) {
+  /* Builder on phones: toasts float just above the dock, clear of the title bar. */
+  body:has(.stage-dock) .toaster {
+    top: auto;
+    bottom: calc(176px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 600px) {
+  /* Entdecken on phones: two columns like a shop listing; tips stay on the look page. */
+  .street__grid--discover {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 10px;
+  }
+  .street__grid--discover .look-tile__title {
+    font-size: 14px;
+  }
+  .street__grid--discover .look-tile__meta {
+    font-size: 12px;
+  }
+  .street__grid--discover .look-tile__tip,
+  .street__grid--discover .look-tile__by {
+    display: none;
+  }
+  .street__grid--discover .look-tile__fav {
+    top: 6px;
+    right: 6px;
+    scale: 0.85;
+  }
+}
+
+@media (max-width: 767px) {
+  /* «Mehr Looks» under a look: one swipe row instead of three full-width tiles. */
+  .look-page .street__grid--three {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    margin: 0 calc(-1 * var(--gutter));
+    padding: 0 var(--gutter) 6px;
+    scrollbar-width: none;
+  }
+  .look-page .street__grid--three > * {
+    flex: 0 0 62%;
+    scroll-snap-align: start;
+  }
+  .look-page .street__grid--three .look-tile__by {
+    display: none;
   }
 }

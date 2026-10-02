@@ -34,6 +34,8 @@ export async function paket3({ run, base, out, draft }) {
     if (d2.items.find((i) => i.uid === trench0.uid).productId !== "trench") throw new Error("undo did not restore");
     if (d2.budget !== 950) throw new Error("undo changed the budget");
     await page.getByRole("button", { name: "Wiederholen" }).click();
+    // The side panel shows the selected piece; «Look» leads back to budget and pieces.
+    await page.locator(".side-back").click();
     await page.locator(".budget__lines dt", { hasText: "Restbudget" }).first().waitFor();
     // Saving suggestion: names a piece, opens the replace sheet for exactly that piece.
     await page.fill("#side-budget", "600");
@@ -47,6 +49,7 @@ export async function paket3({ run, base, out, draft }) {
     const cur = await dlg.locator(".replace-current__title").innerText();
     if (cur !== named) throw new Error(`suggestion named ${named}, sheet shows ${cur}`);
     await dlg.getByRole("button", { name: "Schliessen" }).click();
+    if (await page.locator(".side-back").count()) await page.locator(".side-back").click();
     await page.fill("#side-budget", "950");
     await page.locator(".budget__lines dt", { hasText: "Restbudget" }).first().waitFor();
     // Remember two products in the gallery.

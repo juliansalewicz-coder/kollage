@@ -87,7 +87,7 @@ export function MyLooks() {
           <p className="look-card__meta">Beim Öffnen eines anderen Looks zur Seite gelegt. Sie liegen nur in diesem Browser.</p>
           <ul className="look-cards">
             {archived.map((d) => (
-              <li key={d.archiveId} data-reveal>
+              <li key={d.archiveId}>
                 <article className="look-card">
                   <div className="look-card__window" aria-hidden="true">
                     <LookWindow items={d.items} backdrop={d.backdrop} frame="thin" />
@@ -154,7 +154,7 @@ export function MyLooks() {
           {shown.length ? (
             <ul className="look-cards">
               {shown.map((look) => (
-                <li key={look.id} data-reveal>
+                <li key={look.id}>
                   <LookCard look={look} />
                 </li>
               ))}
