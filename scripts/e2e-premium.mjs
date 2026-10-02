@@ -35,6 +35,7 @@ export async function premium({ run, base, out, draft }) {
   await run("r6-shuffle", { width: 1440, height: 900 }, async (page) => {
     await page.goto(base + "/builder?look=sonntag-am-see");
     await page.locator(".piece--edit").nth(4).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     await page.waitForTimeout(500);
     const before = (await draft(page)).items.map((i) => i.productId).sort().join();
     await page.getByRole("button", { name: "Zufällig tauschen", exact: true }).first().click();

@@ -97,6 +97,7 @@ Saving needs no sign-in: every look saved in this browser is listed under «Mein
 - «Als Bild»: PNG 1080 × 1350, the whole file 4:5 (collage scaled into the area above a 120 px white strip with title, total «Beispielpreise» and KOLLAGE); system share sheet on touch devices, download elsewhere.
 - Desktop canvas toolbar: undo and redo as icons with tooltips, then Anordnen, Leeren, «Zufällig tauschen» (becomes «Variante» while a piece is selected). «Als Bild» sits next to «Speichern».
 - «Variante» (in the selection toolbar, also on phones) swaps the selected piece for another product of the same kind that is not yet in the look; without a selection «Zufällig tauschen» does it for a random piece. Never a whole new outfit. One undo step brings it back.
+- `/builder?look=<example>` is rendered per request: the canvas shows the outfit in the HTML, editable once the draft is applied (`.builder[data-ready]`; until then the cursor shows progress).
 - Breakpoint changes are live (`useMediaQuery`): widening past 1023px closes the product sheet, removes the modal isolation and builds the side gallery; the closed phone sheet still loads no product images.
 - A product picture that fails shows the drawn silhouette in its colour (`.img-fallback`), never an invisible piece.
 - Entdecken on phones: one-line lead, search plus «Filter» (budget, sorting), occasions as one swipe row; the first looks start within the first screen.

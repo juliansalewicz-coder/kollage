@@ -7,6 +7,7 @@ export async function gestures({ run, base, out, draft }) {
   await run("r5-drag-smooth", { width: 1440, height: 900 }, async (page) => {
     await page.goto(base + "/builder?look=sonntag-am-see");
     await page.locator(".piece--edit").nth(4).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     await page.waitForTimeout(500);
     const before = await item(page, "tote-natur");
     const el = page.locator('.piece--edit[aria-label^="Canvas-Tote"]');
@@ -40,6 +41,7 @@ export async function gestures({ run, base, out, draft }) {
   await run("r5-snap-centre", { width: 1440, height: 900 }, async (page) => {
     await page.goto(base + "/builder?look=sonntag-am-see");
     await page.locator(".piece--edit").nth(4).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     await page.waitForTimeout(500);
     const glass = await page.locator(".window--edit .window__glass").boundingBox();
     const el = page.locator('.piece--edit[aria-label^="Canvas-Tote"]');
@@ -63,6 +65,7 @@ export async function gestures({ run, base, out, draft }) {
   await run("r5-pinch-touch", { width: 390, height: 844 }, async (page) => {
     await page.goto(base + "/builder?look=sonntag-am-see");
     await page.locator(".piece--edit").nth(4).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     await page.waitForTimeout(500);
     const before = await item(page, "tote-natur");
     const b = await page.locator('.piece--edit[aria-label^="Canvas-Tote"]').boundingBox();
@@ -91,6 +94,7 @@ export async function gestures({ run, base, out, draft }) {
   await run("r5-trackpad-pinch", { width: 1440, height: 900 }, async (page) => {
     await page.goto(base + "/builder?look=sonntag-am-see");
     await page.locator(".piece--edit").nth(4).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     await page.waitForTimeout(500);
     const el = page.locator('.piece--edit[aria-label^="Canvas-Tote"]');
     await el.click();
@@ -109,6 +113,7 @@ export async function gestures({ run, base, out, draft }) {
   await run("r5-export-png", { width: 1440, height: 900 }, async (page) => {
     await page.goto(base + "/builder?look=herbst-in-bern");
     await page.locator(".piece--edit").nth(5).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Als Bild" }).click()]);
     const name = download.suggestedFilename();
     if (!/\.png$/.test(name)) throw new Error("not a png: " + name);

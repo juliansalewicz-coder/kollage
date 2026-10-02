@@ -4,6 +4,7 @@ export async function tablet({ run, base, out }) {
   await run("r7-builder-1100", { width: 1100, height: 900 }, async (page) => {
     await page.goto(base + "/builder?look=herbst-in-bern");
     await page.locator(".piece--edit").nth(5).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     await page.locator('.piece--edit[aria-label^="Trenchcoat"]').click();
     const back = await page.locator(".side-back").boundingBox();
     const panel = await page.locator(".builder__side").boundingBox();
@@ -14,6 +15,7 @@ export async function tablet({ run, base, out }) {
   await run("r7-builder-800", { width: 800, height: 900 }, async (page) => {
     await page.goto(base + "/builder?look=herbst-in-bern");
     await page.locator(".piece--edit").nth(5).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     const canvas = await page.locator(".window--edit").boundingBox();
     const dock = await page.locator(".stage-dock").boundingBox();
     if (canvas.y + canvas.height > dock.y + 2) throw new Error(`dock covers the canvas: canvas ends ${canvas.y + canvas.height}, dock starts ${dock.y}`);

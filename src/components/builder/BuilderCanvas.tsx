@@ -64,6 +64,10 @@ export function BuilderCanvas({
   itemsRef.current = items;
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
+  // Listeners registered once (trackpad pinch) must call the current commit, not the one from the first render
+  // (which is a no-op while the server-rendered preview is shown).
+  const commitRef = useRef(commit);
+  commitRef.current = commit;
 
   const sorted = [...items].sort((a, b) => a.z - b.z);
   const selItem = items.find((i) => i.uid === selected) ?? null;
@@ -81,7 +85,7 @@ export function BuilderCanvas({
   const frameEl = () => glass.current?.querySelector<HTMLElement>(".selection-frame") ?? null;
 
   function save(uid: string, pose: Pose) {
-    commit((s) => ({ ...s, items: updateItem(s.items, uid, clampItem({ ...s.items.find((i) => i.uid === uid)!, ...pose })) }));
+    commitRef.current((s) => ({ ...s, items: updateItem(s.items, uid, clampItem({ ...s.items.find((i) => i.uid === uid)!, ...pose })) }));
   }
 
   /** Short settle animation after a piece is put down. Class only, no re-render. */

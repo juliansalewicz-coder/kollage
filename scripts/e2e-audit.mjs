@@ -17,6 +17,7 @@ export async function audit({ run, base, out, draft }) {
     });
     await page.goto(base + "/builder?look=apero-am-abend");
     await page.locator(".piece--edit").nth(4).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     await page.waitForTimeout(1500);
     const look = await draft(page);
     const inLook = new Set(look.items.map((i) => i.productId));
@@ -28,6 +29,7 @@ export async function audit({ run, base, out, draft }) {
   await run("r3-drawer-modal", { width: 390, height: 844 }, async (page) => {
     await page.goto(base + "/builder?look=sonntag-am-see");
     await page.locator(".piece--edit").nth(4).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     const opener = page.getByRole("button", { name: "Produkte", exact: true });
     await opener.tap();
     await page.getByRole("button", { name: "Fertig" }).waitFor();
@@ -80,6 +82,7 @@ export async function audit({ run, base, out, draft }) {
     });
     await page.goto(base + "/builder");
     await page.locator(".piece--edit").nth(1).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     const value = async () => Number((await page.locator(".builder__side .budget__lines .ticker__value").first().innerText()).replace(/[^0-9.]/g, ""));
     const before = await value();
     if (before !== 289) throw new Error("duplicates not counted once: " + before);

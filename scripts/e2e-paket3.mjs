@@ -6,6 +6,7 @@ export async function paket3({ run, base, out, draft }) {
   await run("p3-desktop", { width: 1440, height: 900 }, async (page) => {
     await page.goto(base + "/builder?look=herbst-in-bern");
     await page.locator(".piece--edit").nth(5).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     // Budget below the look value (CHF 994.90).
     await page.fill("#side-budget", "950");
     await page.locator(".budget__lines dt", { hasText: "Über Budget" }).first().waitFor();
@@ -64,6 +65,7 @@ export async function paket3({ run, base, out, draft }) {
     await page.screenshot({ path: `${out}/p3-desktop.png` });
     await page.reload();
     await page.locator(".piece--edit").nth(5).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     const f = await favs(page);
     const d3 = await draft(page);
     if (f.products.length !== 2) throw new Error("favourites lost after reload");
@@ -75,6 +77,7 @@ export async function paket3({ run, base, out, draft }) {
   await run("p3-phone", { width: 390, height: 844 }, async (page) => {
     await page.goto(base + "/builder?look=herbst-in-bern");
     await page.locator(".piece--edit").nth(5).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     // Select the trench, replace it from the selection toolbar.
     await page.locator('.piece--edit[aria-label^="Trenchcoat"]').tap();
     await page.screenshot({ path: `${out}/p3-phone-selected.png` });
@@ -99,6 +102,7 @@ export async function paket3({ run, base, out, draft }) {
     await page.waitForTimeout(400);
     await page.reload();
     await page.locator(".piece--edit").nth(5).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     const d = await draft(page);
     const f = await favs(page);
     if (d.budget !== 800) throw new Error("budget lost");

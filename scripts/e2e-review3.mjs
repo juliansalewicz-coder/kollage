@@ -33,6 +33,7 @@ export async function review3({ run, base, out, draft }) {
   await run("r8-gallery-widen-closed", { width: 768, height: 1024 }, async (page) => {
     await page.goto(base + "/builder?look=herbst-in-bern");
     await page.locator(".piece--edit").nth(5).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     await page.waitForLoadState("networkidle");
     if (await page.locator(".product-card").count()) throw new Error("closed tablet sheet already builds the grid");
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -42,6 +43,7 @@ export async function review3({ run, base, out, draft }) {
   await run("r8-gallery-widen-open", { width: 768, height: 1024 }, async (page) => {
     await page.goto(base + "/builder?look=herbst-in-bern");
     await page.locator(".piece--edit").nth(5).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     await page.waitForLoadState("networkidle");
     await page.locator(".add-sheet-btn").click();
     await page.locator(".product-card").first().waitFor();
@@ -168,6 +170,7 @@ export async function review3({ run, base, out, draft }) {
   await run("r8-export-size", { width: 1440, height: 900 }, async (page) => {
     await page.goto(base + "/builder?look=herbst-in-bern");
     await page.locator(".piece--edit").nth(5).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Als Bild" }).click()]);
     const file = `${out}/r8-export.png`;
     await download.saveAs(file);
@@ -186,6 +189,7 @@ export async function review3({ run, base, out, draft }) {
     const toBuy = await page.locator(".buy-total .ticker__value").innerText();
     await page.goto(base + "/builder?look=herbst-in-bern");
     await page.locator(".piece--edit").nth(5).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     await page.getByText(/Noch zu kaufen \(1 im Schrank\)/).waitFor();
     const builderValue = await page.locator(".budget__lines .ticker__value").first().innerText();
     if (builderValue.replace(/\s/g, "") !== toBuy.replace(/\s/g, "")) throw new Error(`look page ${toBuy}, builder ${builderValue}`);
@@ -198,6 +202,7 @@ export async function review3({ run, base, out, draft }) {
   await run("r8-sheet-save", { width: 390, height: 844 }, async (page) => {
     await page.goto(base + "/builder?look=sonntag-am-see");
     await page.locator(".piece--edit").nth(3).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     await page.waitForLoadState("networkidle");
     await page.locator(".mbar__look").tap();
     await page.fill("#sheet-look-title", "Sonntag mit Mara");
@@ -211,6 +216,7 @@ export async function review3({ run, base, out, draft }) {
   await run("r8-variant-phone", { width: 390, height: 844 }, async (page) => {
     await page.goto(base + "/builder?look=sonntag-am-see");
     await page.locator(".piece--edit").nth(3).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     await page.waitForLoadState("networkidle");
     await page.waitForFunction(() => localStorage.getItem("kollage.v1.draft"));
     const before = (await draft(page)).items.map((i) => i.productId).sort().join();
