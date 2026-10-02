@@ -24,7 +24,9 @@ export function ProductStrip({ look }: { look: Look }) {
           <li key={r.uid} className="pstrip__item">
             <button type="button" className="pcard" onClick={() => setOpenUid(r.uid)} aria-haspopup="dialog">
               <span className="pcard__media">
-                <ProductImage product={r.product} className="pcard__img" sizes="(max-width: 767px) 42vw, 190px" />
+                {/* Phones: the hint is capped near 2x density so the 360 px render is used (sharp enough on a 164 px card)
+                    instead of the 900 px one, which cost ~90 KB per card right below the first screen. */}
+                <ProductImage product={r.product} className="pcard__img" sizes="(max-width: 767px) 30vw, 190px" />
               </span>
               <span className="pcard__title">{r.product.title}</span>
               <span className="pcard__meta">

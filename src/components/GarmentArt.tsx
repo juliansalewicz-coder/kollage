@@ -1,6 +1,7 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useState } from "react";
+import { COLOR_FAMILIES } from "@/lib/catalog";
 import { GARMENTS, mix, resolveTones, type CircleLayer, type Layer, type PathLayer } from "@/lib/garments";
 import type { Product } from "@/lib/types";
 
@@ -27,12 +28,27 @@ export function ProductImage({
 }) {
   // Measured on a throttled phone: fetchpriority="high" on several pieces delayed CSS and the first paint, so priority means eager only.
   const loading = priority ? "eager" : "lazy";
+  // A picture that fails (404, offline, blocked) is replaced by the drawn silhouette in the product's colour,
+  // so the piece stays visible and can still be selected, moved and replaced.
+  const [failed, setFailed] = useState(false);
   // Pictures that are still loading after the page is interactive fade in; ones already there stay as they are.
+  // A picture that already failed before hydration (complete, but no pixels) gets the fallback right away.
   const fadeRef = (el: HTMLImageElement | null) => {
-    if (el && !el.complete) el.classList.add("is-pending");
+    if (!el) return;
+    if (!el.complete) el.classList.add("is-pending");
+    else if (el.naturalWidth === 0 && el.currentSrc) setFailed(true);
   };
   const onLoad = (e: React.SyntheticEvent<HTMLImageElement>) => e.currentTarget.classList.remove("is-pending");
+  const onError = () => setFailed(true);
   const img = product.image;
+  if (failed && img.type !== "illustration") {
+    const color = COLOR_FAMILIES.find((c) => c.id === product.colorFamily)?.swatch ?? "#9a9b97";
+    return (
+      <span className={`${className ?? ""} img-fallback`} title={`Bild nicht verfügbar: ${product.title}`}>
+        <GarmentSvg product={{ ...product, image: { type: "illustration", kind: product.kind, color } }} />
+      </span>
+    );
+  }
   if (img.type === "render") {
     const small = img.src.replace("/products/", "/products/sm/");
     const smallW = Math.round(Math.min(360, (img.width * 360) / Math.max(img.width, img.height)));
@@ -41,6 +57,7 @@ export function ProductImage({
       <img
         ref={fadeRef}
         onLoad={onLoad}
+        onError={onError}
         className={className}
         src={small}
         srcSet={`${small} ${smallW}w, ${img.src} ${img.width}w`}
@@ -56,7 +73,7 @@ export function ProductImage({
   }
   if (img.type === "retailer") {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img ref={fadeRef} onLoad={onLoad} className={className} src={img.src} width={img.width} height={img.height} alt="" draggable={false} loading={loading} decoding="async" />;
+    return <img ref={fadeRef} onLoad={onLoad} onError={onError} className={className} src={img.src} width={img.width} height={img.height} alt="" draggable={false} loading={loading} decoding="async" />;
   }
   return <GarmentSvg product={product} className={className} />;
 }

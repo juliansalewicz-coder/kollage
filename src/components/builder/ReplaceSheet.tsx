@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { alternatives, replaceEffect } from "@/lib/budget";
 import { bestOffer, CATEGORIES, getProduct, getShop } from "@/lib/catalog";
 import { formatCHF } from "@/lib/format";
-import { useFavorites } from "@/lib/store";
+import { useFavorites, useOwned } from "@/lib/store";
 import type { CanvasItem, Product } from "@/lib/types";
 import { ProductImage } from "../GarmentArt";
 import { Icon } from "../Icon";
@@ -37,6 +37,7 @@ export function ReplaceSheet({
   onPick: (productId: string, uids: string[]) => void;
 }) {
   const favs = useFavorites();
+  const owned = useOwned();
   const [onlyFavs, setOnlyFavs] = useState(false);
   const [all, setAll] = useState(true);
   const item = uid ? items.find((i) => i.uid === uid) : undefined;
@@ -52,7 +53,7 @@ export function ReplaceSheet({
   const { cheaper, others } = alternatives(current.id);
   const rows: Row[] = [...cheaper, ...others]
     .filter((a) => !onlyFavs || favs.products.includes(a.product.id))
-    .map((a) => ({ product: a.product, price: a.price, similar: a.similar, effect: replaceEffect(items, uids, a.product.id) }));
+    .map((a) => ({ product: a.product, price: a.price, similar: a.similar, effect: replaceEffect(items, uids, a.product.id, owned) }));
   const down = rows.filter((r) => r.effect < 0);
   const rest = rows.filter((r) => r.effect >= 0);
   const price = bestOffer(current).priceCHF;

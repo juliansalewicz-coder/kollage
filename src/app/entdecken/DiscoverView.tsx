@@ -36,6 +36,9 @@ export function DiscoverView() {
   const budget = Number(rawBudget) > 0 ? rawBudget : "";
   const sort = (params.get("sort") ?? "neu") as Sort;
   const [text, setText] = useState(q);
+  /** Phones: budget and sorting sit behind one «Filter» button, so the looks start higher up. */
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreCount = (budget ? 1 : 0) + (sort !== "neu" ? 1 : 0);
   useEffect(() => setText(q), [q]);
 
   function setParam(key: string, value: string) {
@@ -86,10 +89,11 @@ export function DiscoverView() {
     <div className="page wrap">
       <header className="page__head">
         <h1 className="page__title">Looks entdecken</h1>
-        <p className="page__lead">Öffne einen Look, um seine Teile zu sehen, oder übernimm ihn in den Builder und pass ihn an.</p>
+        <p className="page__lead">Öffne einen Look und pass ihn an.</p>
       </header>
 
-      <div className="toolbar" role="search">
+      <div className="toolbar toolbar--discover" role="search">
+        <div className="toolbar__row">
         <div className="field field--search">
           <label htmlFor="look-search" className="sr-only">
             Looks durchsuchen
@@ -98,7 +102,7 @@ export function DiscoverView() {
           <input
             id="look-search"
             type="search"
-            placeholder="Suche nach Titel oder Teil, z. B. Trench"
+            placeholder="Suche, z. B. Trench oder Büro"
             value={text}
             onChange={(e) => {
               setText(e.target.value);
@@ -106,7 +110,17 @@ export function DiscoverView() {
             }}
           />
         </div>
-        <div className="chips" role="group" aria-label="Anlass">
+        <button
+          type="button"
+          className="btn btn--ghost toolbar__more"
+          aria-expanded={moreOpen}
+          aria-controls="discover-more"
+          onClick={() => setMoreOpen((o) => !o)}
+        >
+          <Icon name="filter" size={18} /> Filter{moreCount ? <span className="toolbar__count num"> {moreCount}</span> : null}
+        </button>
+        </div>
+        <div className="chips chips--scroll" role="group" aria-label="Anlass">
           <button type="button" className="chip" aria-pressed={!occasion} onClick={() => setParam("anlass", "")}>
             Alle
           </button>
@@ -116,7 +130,7 @@ export function DiscoverView() {
             </button>
           ))}
         </div>
-        <div className="toolbar__selects">
+        <div className={`toolbar__selects ${moreOpen ? "is-open" : ""}`} id="discover-more">
           <div className="field field--inline">
             <label htmlFor="look-budget">Budget</label>
             <select id="look-budget" value={budget} onChange={(e) => setParam("budget", e.target.value)}>

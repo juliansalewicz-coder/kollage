@@ -59,7 +59,7 @@ There is no accent colour. `--accent*` tokens still exist for older rules and re
 - Look page: on phones a sticky bar with total, «Teile» and «Anpassen» (the page row then shows only Teilen and Merken); «Mehr Looks» is a swipe row.
 - Entdecken on phones: two columns, title, meta and palette only.
 - Colour palette: the colour families of a look as overlapping swatches (18px on the look page with names, 11px on tiles), in shopping-list order.
-- «Habe ich schon»: per piece on the look page; owned pieces fade in the list and the collage, the total becomes «Noch zu kaufen» and the buy bar follows. Stored per look in this browser.
+- «Habe ich schon»: per piece on the look page; owned pieces fade in the list and the collage, the total becomes «Noch zu kaufen» and the buy bar follows. One wardrobe per browser (`kollage.v1.owned`), not per look: a piece owned in one outfit is owned in all. The builder shows the same state (inspector toggle, «im Schrank» in the piece list) and the budget box splits «Look-Wert» and «Noch zu kaufen»; the budget and the cheaper-swap suggestion work on what is left to buy.
 - Demo honesty: «Demo-Preise» next to the hero total, «Beispielpreise aus dem Demo-Katalog» above the product row, demo labels in details.
 - Image loading: lazy everywhere except the first-screen collage (`priority`, eager, no `fetchpriority`), per-piece `sizes`; the phone product drawer builds its grid only after opening.
 
@@ -82,21 +82,24 @@ There is no accent colour. `--accent*` tokens still exist for older rules and re
 | Saved, unchanged | «Gespeichert in «Meine Looks»» / «Veröffentlicht, alles gespeichert» |
 | Saved, changed | draft text plus «Noch nicht in «Meine Looks» gespeichert» |
 
-Saving needs no sign-in: every look saved in this browser is listed under «Meine Looks». Only publishing asks for a name (demo sign-in, labelled «Anmelden & veröffentlichen»). Never promise accounts, sync or public visibility while this is the local demo.
+Saving needs no sign-in: every look saved in this browser is listed under «Meine Looks». Only publishing asks for name and e-mail (demo sign-in, labelled «Anmelden & veröffentlichen»). Publishing has one rule for every entry point (`src/lib/publish.ts`: real title, two different pieces); «Meine Looks» sends an incomplete look to the builder (`?edit=…&veroeffentlichen=1`), which shows the gap. Signed in, the header icon opens a small account menu (name, «Meine Looks», «Abmelden»); it never signs out on the first tap. Never promise accounts, sync or public visibility while this is the local demo.
 
 ## Builder
 
 - Desk `--bg-2`, panels white with a hairline, canvas with a hairline.
-- Desktop: bar (title, status with one short line, image icon, Speichern, Veröffentlichen), three columns (products 300px, canvas, side panel 280px), canvas plus one-row toolbar fit 1440×900.
+- Desktop: bar (title, status with one short line, image icon, Speichern, Veröffentlichen). The main action follows the state: «Speichern» is black until the look is saved, then «Veröffentlichen». Layout: three columns (products 300px, canvas, side panel 280px), canvas plus one-row toolbar fit 1440×900.
 - One place per action: quick actions on the selected piece (Ersetzen, Merken, Drehen, Entfernen) only in the toolbar under the canvas; size and layer via handles and the inspector; no duplicates.
 - Side panel follows the selection: nothing selected shows the look (budget, pieces, details); a selected piece shows its inspector with a «‹ Look» row on top that keeps the total and budget state in view. A saving suggestion started from the budget returns to the look after the swap.
 - Product gallery: search, categories, colours, then «Gemerkt» as a filter chip next to the price filter; the demo note sits at the end of the list.
-- Phones: compact bar (title and status opens the «Dein Look» sheet with title, publish, image and details; undo; redo; «Speichern» saves directly), sticky dock (selection tools or Anordnen/Leeren, plus «Produkte» and the budget bar). The product drawer is modal (inert background, Escape, focus return) and does not open the keyboard on touch screens.
+- Phones: compact bar (title and status opens the «Dein Look» sheet with title, «Speichern & schliessen», publish, image and details; undo; redo; «Speichern» saves directly), sticky dock (selection tools or Anordnen/Leeren, plus «Produkte» and the budget bar). The product drawer is modal (inert background, Escape, focus return) and does not open the keyboard on touch screens.
 - Saving suggestion and replace sheet judge alternatives by the change of the whole look total («Look −60.00»); duplicates are swapped together.
 - Direct manipulation (`gesture.ts`): during a drag, scale or rotate only the piece's `transform` and the selection frame are written, once per animation frame; layout is measured once at the start; React state changes once at the end (one undo step). Touch: a second finger anywhere on the canvas turns the drag into a pinch (distance scales, angle rotates, midpoint moves). Trackpad pinch (ctrl + wheel) scales the selected piece, committed 200 ms after the last wheel event. Centre lines snap within 7 px with a 1px guide at 45 % ink and a 6 ms vibration where supported; rotation snaps within 4° to multiples of 45°.
-- «Als Bild»: PNG 1080 × 1470 (4:5 collage plus a white strip with title, total «Beispielpreise» and KOLLAGE); system share sheet on touch devices, download elsewhere.
-- Desktop canvas toolbar: undo and redo as icons with tooltips, then Anordnen, Leeren, Mischen. «Als Bild» sits next to «Speichern».
-- «Mischen» swaps the selected piece (or a random one) for another product of the same kind that is not yet in the look; one undo step brings it back.
+- «Als Bild»: PNG 1080 × 1350, the whole file 4:5 (collage scaled into the area above a 120 px white strip with title, total «Beispielpreise» and KOLLAGE); system share sheet on touch devices, download elsewhere.
+- Desktop canvas toolbar: undo and redo as icons with tooltips, then Anordnen, Leeren, «Zufällig tauschen» (becomes «Variante» while a piece is selected). «Als Bild» sits next to «Speichern».
+- «Variante» (in the selection toolbar, also on phones) swaps the selected piece for another product of the same kind that is not yet in the look; without a selection «Zufällig tauschen» does it for a random piece. Never a whole new outfit. One undo step brings it back.
+- Breakpoint changes are live (`useMediaQuery`): widening past 1023px closes the product sheet, removes the modal isolation and builds the side gallery; the closed phone sheet still loads no product images.
+- A product picture that fails shows the drawn silhouette in its colour (`.img-fallback`), never an invisible piece.
+- Entdecken on phones: one-line lead, search plus «Filter» (budget, sorting), occasions as one swipe row; the first looks start within the first screen.
 
 ## Motion
 

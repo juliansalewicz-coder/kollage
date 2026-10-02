@@ -27,7 +27,7 @@ export function BudgetBox({
   }, [summary.budget]);
 
   const over = summary.remaining !== null && summary.remaining < 0;
-  const ratio = summary.budget ? Math.min(1, summary.productValue / summary.budget) : 0;
+  const ratio = summary.budget ? Math.min(1, summary.toBuy / summary.budget) : 0;
   const dupes = summary.placed - summary.distinct;
 
   return (
@@ -61,10 +61,16 @@ export function BudgetBox({
       )}
 
       <dl className="budget__lines" id={`${idPrefix}-budget-state`} aria-live="polite">
+        {summary.owned > 0 && (
+          <div className="budget__value">
+            <dt>Look-Wert</dt>
+            <dd className="num">{formatCHF(summary.productValue)}</dd>
+          </div>
+        )}
         <div>
-          <dt>Produktwert</dt>
+          <dt>{summary.owned > 0 ? `Noch zu kaufen (${summary.owned} im Schrank)` : "Produktwert"}</dt>
           <dd>
-            <PriceTicker value={summary.productValue} resetKey={loadKey} />
+            <PriceTicker value={summary.toBuy} resetKey={loadKey} />
           </dd>
         </div>
         {summary.remaining !== null && (
@@ -79,7 +85,7 @@ export function BudgetBox({
         </div>
       </dl>
       <p className="budget__note">
-        Produktwert ohne Versand und ohne mögliche weitere Kosten. Versand gilt, wenn jedes Teil beim günstigsten Shop gekauft wird
+        Produktwert ohne Versand und ohne mögliche weitere Kosten. Versand gilt, wenn jedes fehlende Teil beim günstigsten Shop gekauft wird
         {summary.shops.length > 1 ? ` (${summary.shops.length} Shops)` : ""}.
         {dupes > 0 && ` ${dupes === 1 ? "Ein Teil liegt" : `${dupes} Teile liegen`} mehrfach auf der Leinwand und ${dupes === 1 ? "zählt" : "zählen"} nur einmal.`}
       </p>

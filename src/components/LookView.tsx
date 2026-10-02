@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { toggleOwned, useOwned } from "@/lib/store";
 import { getShop } from "@/lib/catalog";
 import { toast } from "@/lib/events";
 import { formatCHF, pieces } from "@/lib/format";
@@ -49,28 +50,9 @@ export function LookView({ look }: { look: ViewableLook }) {
   const remixHref = look.kind === "beispiel" && look.id ? `/builder?look=${look.id}` : `/builder?d=${code}`;
   const more = SEED_LOOKS.filter((l) => l.id !== look.id).slice(0, 3);
 
-  /* «Habe ich schon»: pieces the person already owns drop out of the total. Kept per look in this browser. */
-  const ownKey = `kollage.v1.owned.${look.id ?? code.slice(0, 40)}`;
-  const [owned, setOwned] = useState<string[]>([]);
-  useEffect(() => {
-    try {
-      const raw = JSON.parse(localStorage.getItem(ownKey) || "[]");
-      setOwned(Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : []);
-    } catch {
-      setOwned([]);
-    }
-  }, [ownKey]);
-  function toggleOwned(productId: string) {
-    setOwned((cur) => {
-      const next = cur.includes(productId) ? cur.filter((x) => x !== productId) : [...cur, productId];
-      try {
-        localStorage.setItem(ownKey, JSON.stringify(next));
-      } catch {
-        /* storage blocked: works for this visit */
-      }
-      return next;
-    });
-  }
+  /* «Habe ich schon»: pieces the person already owns drop out of the total. One wardrobe for all looks (lib/store). */
+  const owned = useOwned();
+  const ownedHere = [...new Set(look.items.map((i) => i.productId))].filter((id) => owned.includes(id));
   const toBuy = look.items.filter((i) => !owned.includes(i.productId));
   const total = lookTotal(look.items);
   const remaining = lookTotal(toBuy);
@@ -80,16 +62,25 @@ export function LookView({ look }: { look: ViewableLook }) {
     track("look_viewed", { look: look.id ?? "geteilt", kind: look.kind });
   }, [look.id, look.kind]);
 
+  /** Counts as shared only once the system sheet finished or the link is on the clipboard. Closing the sheet stays quiet. */
   async function share() {
-    track("look_shared", { look: look.id ?? "geteilt" });
+    const id = look.id ?? "geteilt";
     const url =
       look.kind === "beispiel" && look.id ? `${window.location.origin}/look/${look.id}` : `${window.location.origin}/look/geteilt?d=${code}`;
-    try {
-      if (navigator.share && window.matchMedia("(pointer: coarse)").matches) {
+    track("share_started", { look: id });
+    if (navigator.share && window.matchMedia("(pointer: coarse)").matches) {
+      try {
         await navigator.share({ title: look.title, url });
+        track("look_shared", { look: id, how: "system" });
         return;
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        // Share sheet not available after all (e.g. in an in-app browser): copy instead.
       }
+    }
+    try {
       await navigator.clipboard.writeText(url);
+      track("look_shared", { look: id, how: "kopiert" });
       toast("Link kopiert");
     } catch {
       window.prompt("Link zum Kopieren:", url);
@@ -181,7 +172,7 @@ export function LookView({ look }: { look: ViewableLook }) {
                     {r.number}
                   </span>
                   <div className="buy-row__thumb" aria-hidden="true">
-                    <ProductImage product={r.product} className="buy-row__img" />
+                    <ProductImage product={r.product} className="buy-row__img" sizes="64px" />
                   </div>
                   <div className="buy-row__text">
                     <h3 className="buy-row__title">{r.product.title}</h3>
@@ -238,13 +229,13 @@ export function LookView({ look }: { look: ViewableLook }) {
             })}
           </ol>
           <div className="buy-total" aria-live="polite">
-            <span>{owned.length ? `Noch zu kaufen, ${pieces(new Set(toBuy.map((i) => i.productId)).size)}` : "Alles zusammen, günstigste Angebote"}</span>
+            <span>{ownedHere.length ? `Noch zu kaufen, ${pieces(new Set(toBuy.map((i) => i.productId)).size)}` : "Alles zusammen, günstigste Angebote"}</span>
             <PriceTicker value={remaining} />
           </div>
-          {owned.length > 0 && (
+          {ownedHere.length > 0 && (
             <p className="buy-saved">
               Schon im Schrank: <span className="num">{formatCHF(total - remaining)}</span> ·{" "}
-              <button type="button" className="text-btn" onClick={() => owned.forEach(toggleOwned)}>
+              <button type="button" className="text-btn" onClick={() => ownedHere.forEach(toggleOwned)}>
                 Zurücksetzen
               </button>
             </p>
@@ -277,7 +268,7 @@ export function LookView({ look }: { look: ViewableLook }) {
         <p className="look-buybar__sum">
           <PriceTicker value={remaining} />
           <span>
-            {owned.length ? `noch zu kaufen · ${pieces(new Set(toBuy.map((i) => i.productId)).size)}` : `${pieces(distinctCount(look.items))} · Demo-Preise`}
+            {ownedHere.length ? `noch zu kaufen · ${pieces(new Set(toBuy.map((i) => i.productId)).size)}` : `${pieces(distinctCount(look.items))} · Demo-Preise`}
           </span>
         </p>
         <a href="#teile" className="btn btn--ghost btn--sm">

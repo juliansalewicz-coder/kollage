@@ -5,6 +5,7 @@ import { bestOffer, CATEGORIES, COLOR_FAMILIES, filterProducts, getShop, PRODUCT
 import { formatCHF } from "@/lib/format";
 import { COMPACT_QUERY } from "@/lib/modal";
 import { useFavorites } from "@/lib/store";
+import { useMediaQuery } from "@/lib/use-media";
 import type { Category, ColorFamily } from "@/lib/types";
 import { ActiveFilters, type ActiveFilter } from "../ActiveFilters";
 import { FavoriteButton } from "../FavoriteButton";
@@ -44,10 +45,12 @@ export function Gallery({
   }, [open]);
   const favs = useFavorites();
   // Phones: the product grid is only built once the drawer has been opened, so a closed drawer loads no images.
+  // Live breakpoint: widening the window turns the closed sheet into the visible side column, which needs its grid.
+  const compact = useMediaQuery(COMPACT_QUERY);
   const [showGrid, setShowGrid] = useState(false);
   useEffect(() => {
-    if (open || !window.matchMedia(COMPACT_QUERY).matches) setShowGrid(true);
-  }, [open]);
+    if (open || compact === false) setShowGrid(true);
+  }, [open, compact]);
   const [scope, setScope] = useState<Scope>("alle");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<Category | "alle">("alle");

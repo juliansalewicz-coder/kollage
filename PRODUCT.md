@@ -24,7 +24,7 @@ Inferred from the brief (not interviewed): age range and style segment are open.
 
 One responsive website where users compose outfit collages from a searchable product gallery (tops, bottoms, shoes, bags, accessories) on a digital canvas, like a fashion moodboard. Published looks link every real product to its retailer offer through an affiliate link. Retailers handle checkout, payment and shipping; the owner earns commission on attributed, confirmed purchases.
 
-Success for the MVP: a guest can build a look in the browser, sign in only when saving or publishing without losing the draft, publish it, and a visitor can open the look and reach the retailer for each piece.
+Success for the MVP: a guest can build a look in the browser and save it without an account; publishing asks for a name and e-mail (demo sign-in) without losing the draft; a visitor can open the look, mark pieces they already own, adapt it and reach the retailer for each piece.
 
 ## Positioning
 
@@ -34,7 +34,10 @@ The look is the shopping list: every item on the collage is a real retail offer 
 
 - Language: German (de-CH spelling, no ß). Currency: CHF. Delivery to Switzerland must be shown per offer.
 - Pages: Startseite, Entdecken, Outfit-Builder, Outfit-Seite, Meine Looks. One navigation, one design system.
-- Guests can design and browse. Login is required only to save permanently or publish. The current draft survives login.
+- Guests can design, browse and save looks in this browser (no account). Only publishing asks for the demo sign-in (name and e-mail). The current draft survives sign-in.
+- Publishing follows one rule everywhere (`src/lib/publish.ts`): a real title and at least two different pieces. «Meine Looks» sends an incomplete look to the builder, where the gap is shown.
+- «Habe ich schon» is one wardrobe per browser, not per look: owned pieces drop out of «Noch zu kaufen» on the look page and in the builder; the personal budget is compared with what is left to buy.
+- Saving, publishing and the demo sign-in are browser-local. «Veröffentlicht» means listed under «Entdecken» in this browser; other devices see a look only through a share link.
 - Affiliate disclosure must be visible where links to retailers appear.
 
 ## Capabilities and Constraints
@@ -48,7 +51,7 @@ The look is the shopping list: every item on the collage is a real retail offer 
 
 - Working title "Kollage" (placeholder, not final).
 - Visual reference from the brief: cut-out product images on a light surface, arranged like a fashion moodboard. (The reference image itself was not attached to the session.)
-- Visual direction set by the user on 2026-10-01: bright, reduced, precise, Apple-inspired. White #FFFFFF, secondary #F5F5F7, ink #1D1D1F, secondary text #626267, accent #0071E3; system font stack; sentence-case headings; 12–16 px radii; motion 150–250 ms. Hero copy: "Stelle deinen Look zusammen." / "Kombiniere Kleidung und Accessoires zu deinem Outfit. Entdecke die passenden Shops."
+- Visual direction: «Clean Shop», chosen by the user on 2026-10-01 after the first Apple-like draft (and a serif version) did not fit. Geist sans, ink #111 on white, grey surfaces, no colour accent, 2 px radii (10 px for sheets). The full rules live in DESIGN.md; that file wins over anything older.
 - Imagery: Higgsfield is the generation tool (connected, free plan).
 
 ## Evidence on Hand
@@ -61,7 +64,7 @@ No real products, retailers, prices, affiliate contracts, testimonials, user num
 
 1. Pieces are the heroes. The collage and the products carry the page; interface chrome recedes.
 2. Every item is a way to the shop. Each piece on a look shows price, shop and Swiss delivery, and leads to the offer in one action.
-3. Design first, account later. Nothing blocks a guest until they want to keep or publish.
+3. Design first, account later. Nothing blocks a guest; only publishing asks for a name.
 4. Honest commerce. Affiliate links are disclosed; demo material is labelled; no invented claims.
 5. Same feel on every screen size. The builder works by touch on a phone, not only with a mouse.
 

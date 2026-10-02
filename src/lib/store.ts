@@ -16,6 +16,7 @@ const KEYS = {
   draft: "kollage.v1.draft",
   archive: "kollage.v1.draft-archive",
   favorites: "kollage.v1.favorites",
+  owned: "kollage.v1.owned",
 } as const;
 
 type Key = (typeof KEYS)[keyof typeof KEYS];
@@ -154,6 +155,9 @@ export function deleteLook(id: string) {
     KEYS.looks,
     getLooks().filter((l) => l.id !== id),
   );
+  // A deleted look cannot stay in «Gemerkt» (or in the header count).
+  const favs = getFavorites();
+  if (favs.looks.includes(id)) write(KEYS.favorites, { ...favs, looks: favs.looks.filter((x) => x !== id) });
   const draft = getDraft();
   if (draft?.lookId === id) setDraft({ ...draft, lookId: null });
 }
@@ -231,12 +235,31 @@ export function toggleFavorite(kind: keyof Favorites, id: string): { active: boo
   return { active, persisted: write(KEYS.favorites, next) };
 }
 
+/* ---------- wardrobe («Habe ich schon») ---------- */
+
+const EMPTY_IDS: string[] = [];
+
+/**
+ * Products the person already owns. One list for the whole browser, not per look: a trench coat
+ * owned in one outfit is owned in every outfit, and the builder subtracts it from «Noch zu kaufen» too.
+ */
+export function getOwned(): string[] {
+  return read<string[]>(KEYS.owned, EMPTY_IDS, valid.idList);
+}
+
+export function toggleOwned(productId: string): { active: boolean; persisted: boolean } {
+  const list = getOwned();
+  const active = !list.includes(productId);
+  return { active, persisted: write(KEYS.owned, active ? [productId, ...list] : list.filter((x) => x !== productId)) };
+}
+
 /* ---------- hooks ---------- */
 
 const serverNull = () => null;
 const serverLooks = () => EMPTY_LOOKS;
 const serverArchive = () => EMPTY_ARCHIVE;
 const serverFavs = () => EMPTY_FAVS;
+const serverIds = () => EMPTY_IDS;
 const serverStatus = (): StorageStatus => "dauerhaft";
 
 export function useSession() {
@@ -257,6 +280,10 @@ export function useArchivedDrafts() {
 
 export function useFavorites() {
   return useSyncExternalStore(subscribe, getFavorites, serverFavs);
+}
+
+export function useOwned() {
+  return useSyncExternalStore(subscribe, getOwned, serverIds);
 }
 
 export function useStorageStatus() {

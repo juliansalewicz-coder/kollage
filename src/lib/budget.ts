@@ -9,28 +9,35 @@ export interface ShopShare {
 }
 
 export interface BudgetSummary {
-  /** Sum of the cheapest offer per distinct product, without shipping. */
+  /** Look value: sum of the cheapest offer per distinct product, without shipping. */
   productValue: number;
-  /** Shipping if every distinct product is bought at its cheapest shop. */
+  /** Part of the look value still to buy: products the person does not own yet. */
+  toBuy: number;
+  /** Distinct products on the canvas the person already owns. */
+  owned: number;
+  /** Shipping if every product still to buy is bought at its cheapest shop. */
   shipping: number;
   distinct: number;
   placed: number;
   shops: ShopShare[];
   budget: number | null;
-  /** budget - productValue; negative means over budget. */
+  /** budget - toBuy; negative means over budget. The budget is for shopping, owned pieces cost nothing. */
   remaining: number | null;
 }
 
 const round = (n: number) => Math.round(n * 100) / 100;
 
-export function budgetSummary(items: CanvasItem[], budget: number | null): BudgetSummary {
+export function budgetSummary(items: CanvasItem[], budget: number | null, owned: readonly string[] = []): BudgetSummary {
   const ids = [...new Set(items.map((i) => i.productId))];
   const products = ids.map(getProduct).filter(Boolean) as Product[];
   const byShop = new Map<string, number>();
   let productValue = 0;
+  let toBuy = 0;
   for (const p of products) {
     const o = bestOffer(p);
     productValue += o.priceCHF;
+    if (owned.includes(p.id)) continue;
+    toBuy += o.priceCHF;
     byShop.set(o.shopId, (byShop.get(o.shopId) ?? 0) + o.priceCHF);
   }
   const shops: ShopShare[] = [...byShop].map(([shopId, subtotal]) => {
@@ -40,14 +47,17 @@ export function budgetSummary(items: CanvasItem[], budget: number | null): Budge
   });
   const shipping = round(shops.reduce((s, x) => s + x.shipping, 0));
   productValue = round(productValue);
+  toBuy = round(toBuy);
   return {
     productValue,
+    toBuy,
+    owned: products.filter((p) => owned.includes(p.id)).length,
     shipping,
     distinct: products.length,
     placed: items.length,
     shops,
     budget,
-    remaining: budget === null ? null : round(budget - productValue),
+    remaining: budget === null ? null : round(budget - toBuy),
   };
 }
 
@@ -98,13 +108,17 @@ export function alternatives(productId: string): { cheaper: Alternative[]; other
   return { cheaper: all.filter((a) => a.diff < 0), others: all.filter((a) => a.diff >= 0) };
 }
 
-/** Change of the look's product value (new minus old) if the given placements show `productId` instead. */
-export function replaceEffect(items: CanvasItem[], uids: string[], productId: string): number {
-  const before = budgetSummary(items, null).productValue;
+/**
+ * Change of what is left to buy (new minus old) if the given placements show `productId` instead.
+ * Without owned pieces that is the change of the look value.
+ */
+export function replaceEffect(items: CanvasItem[], uids: string[], productId: string, owned: readonly string[] = []): number {
+  const before = budgetSummary(items, null, owned).toBuy;
   const after = budgetSummary(
     items.map((it) => (uids.includes(it.uid) ? { ...it, productId } : it)),
     null,
-  ).productValue;
+    owned,
+  ).toBuy;
   return round(after - before);
 }
 
@@ -122,17 +136,18 @@ export interface Saving {
  * Works on the whole look: a product placed twice counts once, so all its placements are
  * swapped together, and a suggestion only appears when the total really goes down.
  */
-export function bestSaving(items: CanvasItem[]): Saving | null {
+export function bestSaving(items: CanvasItem[], owned: readonly string[] = []): Saving | null {
   let best: Saving | null = null;
   const seen = new Set<string>();
   for (const it of items) {
-    if (seen.has(it.productId)) continue;
+    // A piece already in the wardrobe costs nothing; swapping it would not save money.
+    if (seen.has(it.productId) || owned.includes(it.productId)) continue;
     seen.add(it.productId);
     const product = getProduct(it.productId);
     if (!product) continue;
     const uids = items.filter((i) => i.productId === it.productId).map((i) => i.uid);
     for (const alt of alternatives(product.id).cheaper.filter((a) => a.similar)) {
-      const saving = round(-replaceEffect(items, uids, alt.product.id));
+      const saving = round(-replaceEffect(items, uids, alt.product.id, owned));
       if (saving > 0 && (!best || saving > best.saving)) best = { item: it, product, saving, placements: uids.length };
     }
   }

@@ -16,7 +16,6 @@ import {
   newUid,
   removeItem,
   replaceItem,
-  rotateItem,
   scaleItem,
   updateItem,
 } from "@/lib/collage";
@@ -29,6 +28,8 @@ import { COMPACT_QUERY, isolate } from "@/lib/modal";
 import { decodeLook } from "@/lib/share";
 import { track } from "@/lib/track";
 import { renderLookImage, shareOrDownload } from "@/lib/export-image";
+import { PUBLISH_LOGIN_REASON, PUBLISH_MESSAGES, publishProblems } from "@/lib/publish";
+import { saveStatus } from "@/lib/save-status";
 import {
   archiveDraft,
   getArchivedDrafts,
@@ -37,9 +38,11 @@ import {
   newLookId,
   removeArchivedDraft,
   toggleFavorite,
+  toggleOwned,
   upsertLook,
   useFavorites,
   useLooks,
+  useOwned,
   useSession,
   useStorageStatus,
 } from "@/lib/store";
@@ -54,6 +57,7 @@ import { Gallery } from "./Gallery";
 import { PieceInspector } from "./PieceInspector";
 import { ReplaceSheet } from "./ReplaceSheet";
 import { EMPTY, useBuilder, type Snapshot } from "./useBuilder";
+import { useMediaQuery } from "@/lib/use-media";
 
 const START_LOOKS = ["herbst-in-bern", "erster-arbeitstag", "sonntag-am-see"];
 
@@ -62,18 +66,26 @@ export function Builder() {
   const params = useSearchParams();
   const session = useSession();
   const favs = useFavorites();
+  /** Wardrobe from the look page («Habe ich schon»): owned pieces stay in the look but leave «Noch zu kaufen». */
+  const owned = useOwned();
   const { state, ready, commit, preview, checkpoint, undo, redo, canUndo, canRedo, live, draftSaved } = useBuilder();
   const looks = useLooks();
   const [selected, setSelected] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerOpener = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
+  /** Phones and small tablets: the gallery is a bottom sheet. Live, so a rotated tablet or a widened window updates. */
+  const compact = useMediaQuery(COMPACT_QUERY);
   /* Phones: the open product drawer is modal. Background stays visible but cannot be reached. */
   useEffect(() => {
-    if (!drawerOpen || !drawerRef.current || !window.matchMedia(COMPACT_QUERY).matches) return;
+    if (!drawerOpen || !compact || !drawerRef.current) return;
     const scrim = drawerRef.current.parentElement?.querySelector(".sheet-scrim");
     return isolate(drawerRef.current, scrim ? [scrim] : []);
-  }, [drawerOpen]);
+  }, [drawerOpen, compact]);
+  /* Widened past the breakpoint with the drawer open: the gallery becomes the side column, nothing stays modal. */
+  useEffect(() => {
+    if (compact === false) setDrawerOpen(false);
+  }, [compact]);
   const [replaceFor, setReplaceFor] = useState<string | null>(null);
   const fromBudget = useRef(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -114,6 +126,8 @@ export function Builder() {
   const [announce, setAnnounce] = useState("");
   const titleRef = useRef<HTMLInputElement>(null);
   const applied = useRef("");
+  /** Look id from ?edit=…&veroeffentlichen=1: publish (with the usual checks) once it is on the canvas. */
+  const publishAfterLoad = useRef<string | null>(null);
   const storageStatus = useStorageStatus();
   /** Something the user asked to open while the current draft has unsaved work. */
   const [pending, setPending] = useState<{ next: Snapshot; label: string; archiveId?: string } | null>(null);
@@ -171,6 +185,7 @@ export function Builder() {
     const fresh = params.get("neu");
     const archived = params.get("entwurf");
     const addParam = params.get("add");
+    if (editParam && params.get("veroeffentlichen")) publishAfterLoad.current = editParam;
     const key = params.toString();
     if (!lookParam && !editParam && !data && !fresh && !archived && !addParam) {
       applied.current = "";
@@ -223,6 +238,7 @@ export function Builder() {
     } else if (data) {
       const shared = decodeLook(data, (id) => Boolean(getProduct(id)));
       if (shared) next = { ...shared, items: shared.items.map((it) => ({ ...it, uid: newUid() })), note: "", lookId: null, basedOn: null };
+      else toast("Dieser Link enthält keinen gültigen Look. Deine Leinwand bleibt unverändert.");
       label = "den geteilten Look";
     }
     if (fresh) {
@@ -263,7 +279,7 @@ export function Builder() {
   }, [items]);
   const rows = pieceRows(items);
   const budget = state.budget ?? null;
-  const summary = useMemo(() => budgetSummary(items, budget), [items, budget]);
+  const summary = useMemo(() => budgetSummary(items, budget, owned), [items, budget, owned]);
   const replaceItemNow = replaceFor ? items.find((i) => i.uid === replaceFor) ?? null : null;
 
   drawerOpenRef.current = drawerOpen;
@@ -327,8 +343,9 @@ export function Builder() {
   }
 
   /**
-   * «Mischen»: tries a different piece of the same kind for the selected piece (or a random one),
-   * so a look can be varied with one tap. Undo brings the previous piece back.
+   * «Variante» (selected piece) / «Zufällig tauschen» (no selection): swaps one piece for a similar
+   * product of the same kind, so a look can be varied with one tap. Undo brings the previous piece back.
+   * It never rebuilds the whole outfit; the labels say so.
    */
   function shuffle() {
     const xs = live.current.items;
@@ -347,7 +364,7 @@ export function Builder() {
     }
     const pick = pool[Math.floor(Math.random() * pool.length)];
     const { oldP, newP } = swapPiece(target.uid, pick.product.id, [target.uid]);
-    if (oldP && newP) toast(`Gemischt: ${newP.title} statt ${oldP.title}`);
+    if (oldP && newP) toast(`Variante: ${newP.title} statt ${oldP.title}. Rückgängig holt das alte Teil zurück.`);
   }
 
   /**
@@ -414,28 +431,23 @@ export function Builder() {
     }
   }
 
+  /** Same rules as «Meine Looks» (lib/publish): title, two different pieces, then a name. */
   function publish() {
-    const problems: string[] = [];
-    if (!live.current.title.trim()) {
-      setTitleError("Gib dem Look einen Titel, bevor du ihn veröffentlichst.");
-      problems.push("title");
-    } else setTitleError(null);
-    if (distinctCount(items) < 2) {
-      setFormError("Ein veröffentlichter Look braucht mindestens zwei verschiedene Teile.");
-      problems.push("items");
-    } else setFormError(null);
+    const problems = publishProblems({ title: live.current.title, items });
+    setTitleError(problems.includes("title") ? PUBLISH_MESSAGES.title : null);
+    setFormError(problems.includes("items") ? PUBLISH_MESSAGES.items : null);
     if (problems[0] === "title") {
       // On phones the title field lives in the save sheet.
-      if (window.matchMedia("(max-width: 1023px)").matches) {
+      if (compact) {
         if (saveOpen) document.getElementById("sheet-look-title")?.focus();
         else setSaveOpen(true);
       } else titleRef.current?.focus();
       return;
     }
     if (problems.length) return;
-    requireLogin("Melde dich an, um deinen Look zu veröffentlichen.", () => {
+    requireLogin(PUBLISH_LOGIN_REASON, () => {
       const { look, persisted } = persist("veroeffentlicht");
-      track("look_published", { look: look.id });
+      track("look_published", { look: look.id, from: "builder" });
       if (!persisted) {
         toast("Veröffentlicht, aber nur für diese Sitzung: Browserspeicher blockiert");
         return;
@@ -445,6 +457,15 @@ export function Builder() {
     });
   }
 
+  /* «Veröffentlichen» on a card in «Meine Looks» for an incomplete look lands here (?edit=…&veroeffentlichen=1):
+     once that look is on the canvas, run the same checks, so the missing title or piece is shown in place. */
+  useEffect(() => {
+    if (!booted || !publishAfterLoad.current || state.lookId !== publishAfterLoad.current) return;
+    publishAfterLoad.current = null;
+    publish();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [booted, state.lookId]);
+
   // Every saved look in this browser belongs to this browser (demo without accounts).
   const ownLook = state.lookId ? looks.find((l) => l.id === state.lookId) : undefined;
   const isPublished = ownLook?.status === "veroeffentlicht";
@@ -452,36 +473,23 @@ export function Builder() {
   /* What is saved where. Only claims "gesichert" after a write that really succeeded. */
   const unsaved = draftNeedsGuard(state, looks);
   const blocked = storageStatus === "sitzung" || draftSaved === false;
-  const status: { tone: "ok" | "warn" | "muted"; text: string; detail: string } = blocked
-    ? { tone: "warn", text: "Nicht gesichert: Browserspeicher blockiert", detail: "Änderungen gehen beim Schliessen des Tabs verloren." }
-    : !items.length
-      ? { tone: "muted", text: "Leere Leinwand", detail: "Sobald ein Teil darauf liegt, wird dein Entwurf in diesem Browser gesichert." }
-      : ownLook && !unsaved
-        ? { tone: "ok", text: isPublished ? "Veröffentlicht, alles gespeichert" : "Gespeichert in «Meine Looks»", detail: "" }
-        : draftSaved
-          ? {
-              tone: "ok",
-              text: "Entwurf in diesem Browser gesichert",
-              detail: isPublished ? "Änderungen sind noch nicht veröffentlicht." : "Noch nicht in «Meine Looks» gespeichert.",
-            }
-          : { tone: "muted", text: "Entwurf wird gesichert …", detail: "" };
+  const status = saveStatus({ blocked, pieces: items.length, savedLook: Boolean(ownLook) && !unsaved, published: isPublished, draftSaved });
   const saveLabel = isPublished ? "Änderungen veröffentlichen" : "Speichern";
+  /** Order of the work: edit, save, then share or publish. Until the look is saved, saving is the main action. */
+  const saveFirst = unsaved || !ownLook;
   const publishLabel = !session ? "Anmelden & veröffentlichen" : "Veröffentlichen";
-  const publishHint = session ? "Zeigt den Look mit eigener Seite unter «Entdecken»." : "Zeigt den Look unter «Entdecken». Dafür brauchst du einen Namen (Demo-Anmeldung).";
+  // Demo scope said where the action is: «Entdecken» in this browser; other people see a look through its share link.
+  const publishHint = session
+    ? "Zeigt den Look mit eigener Seite unter «Entdecken», in diesem Browser. Andere sehen ihn über «Teilen»."
+    : "Zeigt den Look unter «Entdecken», in diesem Browser. Dafür fragt Kollage nach Name und E-Mail (Demo, kein Konto).";
   const demoHint = "Alles bleibt in diesem Browser und wird nicht zwischen Geräten abgeglichen. Die Anmeldung ist eine Demo ohne echtes Konto.";
   /** One line under the desktop status: what the two buttons add to the automatic draft. */
   const explain = session ? "Alles bleibt in diesem Browser." : "Speichern ohne Anmeldung, nur in diesem Browser.";
 
-  const short: Record<string, string> = {
-    "Entwurf in diesem Browser gesichert": "Entwurf gesichert",
-    "Nicht gesichert: Browserspeicher blockiert": "Nicht gesichert",
-    "Gespeichert in «Meine Looks»": "In «Meine Looks»",
-    "Veröffentlicht, alles gespeichert": "Veröffentlicht",
-  };
-  const statusLine = (compact = false) => (
+  const statusLine = (brief = false) => (
     <span className={`save-status is-${status.tone}`} role="status">
       <Icon name={status.tone === "warn" ? "lock" : status.tone === "ok" ? "check" : "edit"} size={16} />
-      <span>{compact ? (short[status.text] ?? status.text) : status.text}</span>
+      <span>{brief ? status.short : status.text}</span>
     </span>
   );
 
@@ -548,10 +556,15 @@ export function Builder() {
           edit((xs) => duplicateItem(xs, selItem.uid, id));
           setSelected(id);
         }}
+        owned={owned.includes(selProduct.id)}
+        onOwned={() => {
+          const { active } = toggleOwned(selProduct.id);
+          toast(active ? `${selProduct.title}: im Schrank, zählt nicht mehr zu «Noch zu kaufen»` : `${selProduct.title}: wieder zu kaufen`);
+        }}
       />
     ) : null;
 
-  const saving = summary.remaining !== null && summary.remaining < 0 ? bestSaving(items) : null;
+  const saving = summary.remaining !== null && summary.remaining < 0 ? bestSaving(items, owned) : null;
 
   const budgetPanel = (prefix: string) => (
     <section className="side-block" aria-labelledby={`${prefix}-budget-title`}>
@@ -664,7 +677,11 @@ export function Builder() {
                 >
                   <span className="tag-num tag-num--sm">{r.number}</span>
                   <span className="mini-row__title">{r.product.title}</span>
-                  <span className="num">{formatCHF(r.offer.priceCHF)}</span>
+                  {owned.includes(r.product.id) ? (
+                    <span className="mini-row__owned">im Schrank</span>
+                  ) : (
+                    <span className="num">{formatCHF(r.offer.priceCHF)}</span>
+                  )}
                 </button>
               </li>
             ))}
@@ -701,11 +718,11 @@ export function Builder() {
           >
             <Icon name="image" size={20} />
           </button>
-          <button type="button" className="btn btn--ghost" onClick={save} aria-describedby="builder-explain">
+          <button type="button" className={`btn ${saveFirst ? "btn--primary" : "btn--ghost"}`} onClick={save} aria-describedby="builder-explain">
             {saveLabel}
           </button>
           {!isPublished && (
-            <button type="button" className="btn btn--primary" onClick={publish} aria-describedby="builder-explain">
+            <button type="button" className={`btn ${saveFirst ? "btn--ghost" : "btn--primary"}`} onClick={publish} aria-describedby="builder-explain">
               {publishLabel}
             </button>
           )}
@@ -747,9 +764,18 @@ export function Builder() {
           {statusLine()}
           {status.detail && <span className="save-status__detail">{status.detail}</span>}
         </div>
+        {formError && (
+          <p className="field__error" role="alert">
+            {formError}
+          </p>
+        )}
         <div className="save-actions">
+          <button type="button" className={`save-action ${saveFirst ? "save-action--primary" : ""}`} onClick={save}>
+            <span className="save-action__label">{isPublished ? "Änderungen veröffentlichen" : "Speichern & schliessen"}</span>
+            <span className="save-action__hint">{isPublished ? "Die Look-Seite zeigt danach diese Fassung." : "Legt den Look in «Meine Looks» ab, ohne Anmeldung."}</span>
+          </button>
           {!isPublished && (
-            <button type="button" className="save-action save-action--primary" onClick={publish}>
+            <button type="button" className={`save-action ${saveFirst ? "" : "save-action--primary"}`} onClick={publish}>
               <span className="save-action__label">{publishLabel}</span>
               <span className="save-action__hint">{publishHint}</span>
             </button>
@@ -840,8 +866,14 @@ export function Builder() {
             >
               <Icon name="trash" /> <span className="tool__label">Leeren</span>
             </button>
-            <button type="button" className="tool" onClick={shuffle} disabled={!items.length} title="Ein Teil gegen eine passende Variante tauschen">
-              <Icon name="sparkle" /> <span className="tool__label">Mischen</span>
+            <button
+              type="button"
+              className="tool"
+              onClick={shuffle}
+              disabled={!items.length}
+              title={selItem ? "Das ausgewählte Teil gegen eine ähnliche Variante tauschen" : "Ein zufälliges Teil gegen eine ähnliche Variante tauschen"}
+            >
+              <Icon name="sparkle" /> <span className="tool__label">{selItem ? "Variante" : "Zufällig tauschen"}</span>
             </button>
           </div>
 
@@ -878,9 +910,10 @@ export function Builder() {
                     <Icon name={favSelected ? "heartFilled" : "heart"} />
                     <span className="tool__label">{favSelected ? "Gemerkt" : "Merken"}</span>
                   </button>
-                  <button type="button" className="tool" onClick={() => edit((xs) => rotateItem(xs, selItem.uid, 10))} aria-label="Drehen">
-                    <Icon name="rotateRight" />
-                    <span className="tool__label">Drehen</span>
+                  {/* Turning stays under «Mehr» (slider) and on the canvas (two fingers, handle). */}
+                  <button type="button" className="tool" onClick={shuffle} aria-label={`Variante testen: ${selProduct.title} gegen ein ähnliches Teil tauschen`}>
+                    <Icon name="sparkle" />
+                    <span className="tool__label">Variante</span>
                   </button>
                   <button
                     type="button"
@@ -906,8 +939,8 @@ export function Builder() {
                   </span>
                   {/* Phones: canvas actions live here because the toolbar above the canvas is gone. */}
                   <span className="idle-tools">
-                    <button type="button" className="tool" onClick={shuffle} disabled={!items.length}>
-                      <span className="tool__label">Mischen</span>
+                    <button type="button" className="tool" onClick={shuffle} disabled={!items.length} aria-label="Zufällig ein Teil gegen eine ähnliche Variante tauschen">
+                      <span className="tool__label">Zufällig tauschen</span>
                     </button>
                     <button type="button" className="tool" onClick={() => edit((xs) => autoArrange(xs, lookup))} disabled={!items.length}>
                       <span className="tool__label">Anordnen</span>
@@ -937,7 +970,7 @@ export function Builder() {
                 <Icon name="plus" /> Produkte
               </button>
               <button type="button" className={`lookbar ${summary.remaining !== null && summary.remaining < 0 ? "is-over" : ""}`} onClick={() => setLookOpen(true)} aria-haspopup="dialog">
-                <PriceTicker value={summary.productValue} className="lookbar__value" resetKey={loadKey} />
+                <PriceTicker value={summary.toBuy} className="lookbar__value" resetKey={loadKey} />
                 <span className="lookbar__state">
                   {summary.remaining === null
                     ? "Budget festlegen"
@@ -959,7 +992,7 @@ export function Builder() {
                 <Icon name="chevronRight" size={16} className="side-back__icon" />
                 <span>Look</span>
                 <span className="side-back__sum">
-                  <PriceTicker value={summary.productValue} resetKey={loadKey} />
+                  <PriceTicker value={summary.toBuy} resetKey={loadKey} />
                   {summary.remaining !== null && (
                     <span className={summary.remaining < 0 ? "is-over" : ""}>
                       {summary.remaining < 0 ? `${formatCHF(-summary.remaining)} über Budget` : `Rest ${formatCHF(summary.remaining)}`}
