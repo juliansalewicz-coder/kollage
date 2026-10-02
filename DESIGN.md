@@ -56,6 +56,8 @@ There is no accent colour. `--accent*` tokens still exist for older rules and re
 - Collages are 4:5 everywhere, on `--bg-2`; editorial looks use the same backdrop. Card hover underlines the title, nothing moves.
 - Start page: composed hero look with its action directly below, then «Die Teile von …» as shop cards (a row to swipe on phones), entries by occasion, editorial looks (a row to swipe on phones).
 - Look page: on phones a sticky bar with total, «Teile» and «Anpassen».
+- Colour palette: the colour families of a look as overlapping swatches (18px on the look page with names, 11px on tiles), in shopping-list order.
+- «Habe ich schon»: per piece on the look page; owned pieces fade in the list and the collage, the total becomes «Noch zu kaufen» and the buy bar follows. Stored per look in this browser.
 - Demo honesty: «Demo-Preise» next to the hero total, «Beispielpreise aus dem Demo-Katalog» above the product row, demo labels in details.
 - Image loading: lazy everywhere except the first-screen collage (`priority`, eager, no `fetchpriority`), per-piece `sizes`; the phone product drawer builds its grid only after opening.
 
@@ -88,11 +90,26 @@ Saving needs no sign-in: every look saved in this browser is listed under «Mein
 - Saving suggestion and replace sheet judge alternatives by the change of the whole look total («Look −60.00»); duplicates are swapped together.
 - Direct manipulation (`gesture.ts`): during a drag, scale or rotate only the piece's `transform` and the selection frame are written, once per animation frame; layout is measured once at the start; React state changes once at the end (one undo step). Touch: a second finger anywhere on the canvas turns the drag into a pinch (distance scales, angle rotates, midpoint moves). Trackpad pinch (ctrl + wheel) scales the selected piece, committed 200 ms after the last wheel event. Centre lines snap within 7 px with a 1px guide at 45 % ink and a 6 ms vibration where supported; rotation snaps within 4° to multiples of 45°.
 - «Als Bild»: PNG 1080 × 1470 (4:5 collage plus a white strip with title, total «Beispielpreise» and KOLLAGE); system share sheet on touch devices, download elsewhere.
-- Desktop canvas toolbar: undo and redo as icons with tooltips, then Anordnen, Leeren, Als Bild.
+- Desktop canvas toolbar: undo and redo as icons with tooltips, then Anordnen, Leeren, Mischen. «Als Bild» sits next to «Speichern».
+- «Mischen» swaps the selected piece (or a random one) for another product of the same kind that is not yet in the look; one undo step brings it back.
 
 ## Motion
 
-Short and only where it explains a change: pick-up (scale 1.03 with a light spring, `cubic-bezier(.34,1.56,.64,1)`, 180ms), put-down (settle with a small overshoot, 340ms), piece arrives (fade and grow 300ms, ink ring 700ms), replace (cross-fade 260–320ms), selection frame (140ms), price change (value settles 260ms, difference chip 1.8s), product card picture hover (220ms). Dragging is never animated. `prefers-reduced-motion` turns all of it off.
+Curves: `--ease-out-strong: cubic-bezier(.23,1,.32,1)` for entering and feedback, `--ease-drawer: cubic-bezier(.32,.72,0,1)` for sheets and the product drawer, light spring `cubic-bezier(.34,1.56,.64,1)` only for picking up a piece. Only `transform`/`translate`/`scale` and `opacity` are animated. Nothing animates on keyboard actions. `prefers-reduced-motion: reduce` turns movement off (the global rule shortens everything; reveal and entrance rules only exist under `no-preference`).
+
+| Event | Motion | Duration |
+|---|---|---|
+| Press on buttons, chips, cards, tools | `scale: 0.97` | 160ms |
+| Start page load | headline and text rise 12px, outfit pieces laid down one by one (70ms apart), plate and steps follow | 620–640ms, total under 1.2s |
+| Scrolling | cards, rows and section heads rise in as they enter the viewport (CSS `animation-timeline: view()`, siblings slightly offset); without browser support content is simply there | tied to scroll |
+| Pictures loading after the page is ready | fade in (GarmentArt marks them `is-pending`) | 360ms |
+| Sheet / dialog | phones: slide up from the bottom; desktop: scale from 0.96 with fade; backdrop fades | 420ms / 240ms |
+| Toast | rises 14px from 0.97 | 320ms |
+| Heart on remember | pop 0.7 → 1.28 → 1, only after a tap | 420ms |
+| Palette swatches (look page) | rise one after another | 420ms, 50ms apart |
+| «Habe ich schon» | row and collage piece fade to 40 % / 22 %, total ticks | 260–320ms |
+| Builder | pick-up spring, settle, arrive ring, swap cross-fade, selection frame, price delta (see Builder) | 140–700ms |
+| Dragging | none: the piece follows the pointer directly | – |
 
 ## Measuring
 

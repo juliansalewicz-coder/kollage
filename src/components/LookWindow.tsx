@@ -24,6 +24,7 @@ export function LookWindow({
   onPieceActivate,
   activePiece = null,
   labels = false,
+  muted = [],
 }: {
   items: CanvasItem[];
   backdrop: Backdrop;
@@ -42,6 +43,8 @@ export function LookWindow({
   activePiece?: string | null;
   /** Name and price next to the piece under the pointer or keyboard focus, instead of permanent number tags. */
   labels?: boolean;
+  /** Placements shown faded, e.g. pieces the person already owns. */
+  muted?: string[];
 }) {
   const numbers = tags ? numberPieces(items) : null;
   const sorted = [...items].sort((a, b) => a.z - b.z);
@@ -57,7 +60,7 @@ export function LookWindow({
           const product = getProduct(it.productId);
           if (!product) return null;
           const style = { ...itemStyle(it, imageAspect(product)), ["--i" as string]: i };
-          const cls = `piece ${highlight === it.uid ? "is-lit" : ""} ${activePiece === it.uid ? "is-active" : ""}`;
+          const cls = `piece ${highlight === it.uid ? "is-lit" : ""} ${activePiece === it.uid ? "is-active" : ""} ${muted.includes(it.uid) ? "is-muted" : ""}`;
           const hover = {
             onPointerEnter: onHighlight ? () => onHighlight(it.uid) : undefined,
             onPointerLeave: onHighlight ? () => onHighlight(null) : undefined,

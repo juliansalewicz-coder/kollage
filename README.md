@@ -41,6 +41,9 @@ Produktions-Build neben laufendem Dev-Server: `NEXT_DIST_DIR=.next-build npx nex
 
 ## Builder-Funktionen
 
+- «Mischen»: tauscht ein Teil gegen eine passende Variante derselben Art.
+- Look-Seite: «Habe ich schon» je Teil (Gesamtpreis wird zu «Noch zu kaufen»), Farbpalette jedes Looks.
+
 - Direktes Bearbeiten ohne Ruckeln: Verschieben, Skalieren und Drehen laufen über GPU-Transforms, ein Undo-Schritt pro Geste; zwei Finger zoomen und drehen, Trackpad-Pinch skaliert, die Mitte rastet mit Hilfslinie ein.
 - «Als Bild»: Look als PNG (4:5) mit Titel und Preis teilen oder speichern.
 
