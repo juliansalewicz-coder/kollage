@@ -5887,3 +5887,8 @@ html.menu-open {
 .idle-tools .tool__label {
   white-space: nowrap;
 }
+
+/* Builder before the draft is applied: the server-rendered outfit is visible but not yet editable. */
+.builder:not([data-ready]) .window--edit {
+  cursor: progress;
+}

@@ -27,7 +27,7 @@ import { BACKDROPS, getSeedLook, lookup, OCCASIONS } from "@/lib/seed-looks";
 import { COMPACT_QUERY, isolate } from "@/lib/modal";
 import { decodeLook } from "@/lib/share";
 import { track } from "@/lib/track";
-import { renderLookImage, shareOrDownload } from "@/lib/export-image";
+import { ExportBlockedError, renderLookImage, shareOrDownload } from "@/lib/export-image";
 import { PUBLISH_LOGIN_REASON, PUBLISH_MESSAGES, publishProblems } from "@/lib/publish";
 import { saveStatus } from "@/lib/save-status";
 import {
@@ -60,6 +60,7 @@ import { EMPTY, useBuilder, type Snapshot } from "./useBuilder";
 import { useMediaQuery } from "@/lib/use-media";
 
 const START_LOOKS = ["herbst-in-bern", "erster-arbeitstag", "sonntag-am-see"];
+const noop = () => {};
 
 export function Builder() {
   const router = useRouter();
@@ -270,6 +271,9 @@ export function Builder() {
   }, [undo, redo]);
 
   const items = state.items;
+  /* Until the stored draft and the URL are applied, the canvas shows the requested example look as it will
+     appear: rendered on the server too, so a phone sees the outfit before the JavaScript has loaded. */
+  const bootPreview = booted ? undefined : getSeedLook(params.get("look") ?? "");
   const selItem = items.find((i) => i.uid === selected) ?? null;
   const selProduct = selItem ? getProduct(selItem.productId) : undefined;
   const counts = useMemo(() => {
@@ -425,7 +429,8 @@ export function Builder() {
       if (how === "gespeichert") toast("Bild gespeichert");
     } catch (err) {
       // Closing the share sheet is not an error worth a message.
-      if (!(err instanceof DOMException && err.name === "AbortError")) toast("Bild konnte nicht erstellt werden. Bitte nochmals versuchen.");
+      if (err instanceof ExportBlockedError) toast("Ein Händlerbild darf nicht ins Bild übernommen werden. Teile den Link zum Look stattdessen.");
+      else if (!(err instanceof DOMException && err.name === "AbortError")) toast("Bild konnte nicht erstellt werden. Bitte nochmals versuchen.");
     } finally {
       setExporting(false);
     }
@@ -698,7 +703,7 @@ export function Builder() {
   const favSelected = selProduct ? favs.products.includes(selProduct.id) : false;
 
   return (
-    <div className="builder" data-sheet={drawerOpen ? "open" : "closed"}>
+    <div className="builder" data-sheet={drawerOpen ? "open" : "closed"} data-ready={booted ? "" : undefined}>
       <div className="builder__bar">
         {titleField("look-title", titleRef)}
         <div className="builder__status" id="builder-status">
@@ -878,11 +883,11 @@ export function Builder() {
           </div>
 
           <BuilderCanvas
-            items={items}
-            backdrop={state.backdrop}
-            selected={selected}
-            onSelect={setSelected}
-            commit={commit}
+            items={bootPreview ? bootPreview.items : items}
+            backdrop={bootPreview ? bootPreview.backdrop : state.backdrop}
+            selected={bootPreview ? null : selected}
+            onSelect={bootPreview ? noop : setSelected}
+            commit={bootPreview ? noop : commit}
             onDropProduct={dropAt}
             emptyState={booted ? emptyState : <p className="canvas-loading">Look wird geladen …</p>}
             fx={fx}

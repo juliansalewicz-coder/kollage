@@ -22,6 +22,7 @@ export async function paket2({ run, base, draft }) {
     await page.getByRole("link", { name: "Diesen Look anpassen" }).tap();
     await page.waitForURL(base + "/builder");
     await page.locator(".piece--edit").nth(5).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     await page.waitForTimeout(500); // autosave debounce
     const d = await draft(page);
     if (!d.title.includes("Herbst unter den Lauben")) throw new Error("hero look not opened: " + d.title);

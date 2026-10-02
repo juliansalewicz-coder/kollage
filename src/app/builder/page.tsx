@@ -7,6 +7,9 @@ export const metadata: Metadata = {
   description: "Wähle Teile aus der Galerie und arrangiere sie zur Outfit-Collage.",
 };
 
+/* Rendered per request: the server reads ?look= and sends the outfit with the HTML (see Builder `bootPreview`). */
+export const dynamic = "force-dynamic";
+
 export default function BuilderPage() {
   return (
     // The fallback keeps the builder's height, so nothing below jumps when it appears.

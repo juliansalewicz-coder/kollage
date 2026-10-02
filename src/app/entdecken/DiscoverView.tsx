@@ -160,6 +160,7 @@ export function DiscoverView() {
         <ActiveFilters filters={active} onReset={reset} />
       </div>
 
+      <h2 className="sr-only">Ergebnisse</h2>
       {results.length ? (
         <div className="street__grid street__grid--discover">
           {results.map((look) => (

@@ -21,15 +21,24 @@ const SCALE = (HEIGHT - FOOTER) / CANVAS_H;
 const OFFSET_X = (WIDTH - CANVAS_W * SCALE) / 2;
 export const EXPORT_SIZE = { width: WIDTH, height: HEIGHT };
 
-function load(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
+/**
+ * Retailer pictures come from other hosts. Without CORS a single foreign picture "taints" the canvas and the
+ * PNG cannot be read. So foreign pictures are requested with crossOrigin="anonymous" (set before src), and a
+ * picture that still fails is left out instead of breaking the whole export.
+ */
+function load(src: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
     const img = new Image();
     img.decoding = "async";
+    if (new URL(src, window.location.href).origin !== window.location.origin) img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`Bild konnte nicht geladen werden: ${src}`));
+    img.onerror = () => resolve(null);
     img.src = src;
   });
 }
+
+/** Thrown when the PNG cannot be read back, e.g. a foreign picture without CORS header slipped through. */
+export class ExportBlockedError extends Error {}
 
 /**
  * Draws the collage as a PNG: pieces in their layer order with the same soft shadow as on screen,
@@ -60,7 +69,8 @@ export async function renderLookImage(items: CanvasItem[], backdrop: Backdrop, t
     ctx.shadowColor = "rgba(0, 0, 0, 0.13)";
     ctx.shadowBlur = 22;
     ctx.shadowOffsetY = 7;
-    ctx.drawImage(images[i], -w / 2, -h / 2, w, h);
+    const img = images[i];
+    if (img) ctx.drawImage(img, -w / 2, -h / 2, w, h);
     ctx.restore();
   });
 
@@ -81,7 +91,13 @@ export async function renderLookImage(items: CanvasItem[], backdrop: Backdrop, t
   if ("letterSpacing" in ctx) (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = "6px";
   ctx.fillText("KOLLAGE", WIDTH - 50, y + FOOTER / 2);
 
-  return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("PNG fehlgeschlagen"))), "image/png"));
+  return new Promise((resolve, reject) => {
+    try {
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("PNG fehlgeschlagen"))), "image/png");
+    } catch (err) {
+      reject(err instanceof DOMException && err.name === "SecurityError" ? new ExportBlockedError("Händlerbild ohne Freigabe") : err);
+    }
+  });
 }
 
 /** Phones: the system share sheet (save to photos, send to an app). Elsewhere: a download. */

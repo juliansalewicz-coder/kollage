@@ -77,6 +77,7 @@ export async function review2({ run, base, out, draft }) {
     });
     await page.goto(base + "/builder?look=sonntag-am-see");
     await page.locator(".piece--edit").nth(3).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     await page.locator(".mbar .save-status", { hasText: "Nicht gesichert" }).waitFor();
     if (await page.locator(".save-status", { hasText: "gesichert" }).filter({ hasNotText: "Nicht" }).count())
       throw new Error("claims saved while storage is blocked");
@@ -90,6 +91,7 @@ export async function review2({ run, base, out, draft }) {
     await run(name, vp, async (page) => {
       await page.goto(base + "/builder?look=herbst-in-bern");
       await page.locator(".piece--edit").nth(5).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
       // The outfit starts high and fits together with the dock on the first screen.
       const canvas = await page.locator(".window--edit").boundingBox();
       const dock = await page.locator(".stage-dock").boundingBox();
@@ -126,6 +128,7 @@ export async function review2({ run, base, out, draft }) {
   await run("r2-swap-motion", { width: 1440, height: 900 }, async (page) => {
     await page.goto(base + "/builder?look=herbst-in-bern");
     await page.locator(".piece--edit").nth(5).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     await page.locator('.piece--edit[aria-label^="Trenchcoat"]').click();
     await page.getByRole("toolbar", { name: "Ausgewähltes Teil" }).getByRole("button", { name: "Ersetzen" }).click();
     await page.locator("dialog.sheet[open] .alt-row").first().click();

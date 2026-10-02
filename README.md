@@ -39,7 +39,13 @@ node scripts/perf.mjs http://localhost:3200   # Labormessung gedrosseltes Handy 
 Tests: `npm test` (42 Unit-Tests), `node scripts/e2e.mjs` (Browser-Szenarien bei 360, 390, 768, 800, 1100 und 1440 px; einzelne Gruppen mit `ONLY=r8`).
 Produktions-Build neben laufendem Dev-Server: `NEXT_DIST_DIR=.next-build npx next build`.
 
-Messung (2.10.2026, `scripts/perf.mjs`, Produktions-Build lokal, 390 px, DPR 3, 1,6 Mbit/s, CPU ×4, je drei Läufe): Bilder Startseite 912 → 730 KB, Look-Seite 567 → 428 KB, nachdem Kauflisten-Thumbnails und Produktkarten nicht mehr die 900-px-Variante laden. Layoutverschiebung überall 0. Die Zeiten (LCP) schwanken auf dem Messrechner stark (Startseite 3,3–3,7 s, Look-Seite 4,5–7,6 s mit gleichem FCP-Ausschlag) und sind keine Feldwerte. Der Builder zeigt die Leinwand erst nach dem Laden des JavaScripts (LCP 4,3–5,8 s); ein serverseitig gerendertes Startbild der Leinwand wäre der nächste Hebel.
+Messung (2.10.2026, `scripts/perf.mjs`, Produktions-Build lokal, 390 px, DPR 3, 1,6 Mbit/s, CPU ×4): Bilder Startseite 912 → 730 KB, Look-Seite 567 → 428 KB (Kauflisten-Thumbnails und Produktkarten laden die 360-px-Variante). Builder: Der Server schickt den gewählten Beispiel-Look schon mit dem HTML, LCP 4,3–5,8 s → 2,0–2,9 s in vier von fünf Läufen (ein Ausreisser 4,6 s), Outfit nach 3 s sichtbar statt leer. Layoutverschiebung überall 0. Laborwerte auf einem verrauschten Rechner, keine Feldwerte.
+
+## Messen, Vorschau, Export
+
+- **Ereignisse zentral:** `src/lib/track.ts` schickt jeden Schritt per `sendBeacon` an `/api/events` (`src/app/api/events/route.ts`). Der Server schreibt pro Ereignis eine Zeile `kollage-event {…}` ins Protokoll des Hostings, nur bekannte Ereignisse und Felder, eigene Looks als «eigen» (keine Titel, Namen, E-Mails). Auswertung eines Log-Exports: `node scripts/funnel.mjs export.log`. Abschalten: `NEXT_PUBLIC_EVENTS=off`.
+- **Link-Vorschau:** `/og?look=<id>` bzw. `/og?d=<code>` erzeugt ein 1200 × 630-Bild mit Collage, Titel, Teilen und Preis. Beispiel-Looks und geteilte eigene Looks setzen es als `og:image`. Die Bilder nutzen PNG-Kopien in `public/products/og` (`python scripts/og-pngs.py` nach neuen Renderings), weil der Renderer kein WebP liest. Für absolute Adressen `NEXT_PUBLIC_SITE_URL` setzen (auf Vercel automatisch).
+- **Bildexport mit Händlerbildern:** fremde Bilder werden mit `crossOrigin="anonymous"` geladen; liefert der Händler keinen CORS-Header, fehlt dieses Teil im PNG statt dass der Export abbricht, und ein gesperrter Canvas meldet sich verständlich.
 
 ## Bedienung im Builder
 
@@ -64,8 +70,7 @@ Messung (2.10.2026, `scripts/perf.mjs`, Produktions-Build lokal, 390 px, DPR 3, 
 
 1. Affiliate-Netzwerke und Händler mit Lieferung in die Schweiz auswählen, Produkt-Feeds anbinden (`Product.image.type = "retailer"` und `Offer.affiliateUrl` sind vorgesehen; `/weiter/[offerId]` leitet dann mit `subid` weiter).
 2. Backend + echte Anmeldung (z. B. Magic Link): `src/lib/store.ts` ersetzen, Looks serverseitig speichern, öffentliche Look-URLs für alle.
-3. Funnel-Ereignisse (`src/lib/track.ts`: `share_started`, `look_shared` erst nach Abschluss, …) an ein Analytics-Tool anschliessen; Provisionsabgleich je Look.
-   Händlerbilder im PNG-Export brauchen CORS-Header (oder Bilder über die eigene Domain), sonst sperrt der Canvas.
+3. Öffentlich hosten (z. B. Vercel), dann Ereignisse im Hosting-Log auswerten; Provisionsabgleich je Look.
 4. Higgsfield autorisieren und Editorial-Bilder/Video gemäss Prompt-Datei erzeugen (als KI-Stimmungsbild gekennzeichnet).
 5. Rechtstexte prüfen lassen, Markenname festlegen.
 6. Später: DACH (EUR, weitere Lieferländer), virtuelle Anprobe.

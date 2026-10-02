@@ -30,8 +30,13 @@ export default function NoticesPage() {
         <h2>Datenschutz</h2>
         <p className="draft-note">Entwurf, rechtliche Prüfung nötig. Nicht als endgültige Datenschutzerklärung verwenden.</p>
         <p>
-          Im MVP speichert Kollage Entwürfe, Looks sowie Name und E-Mail der Demo-Anmeldung nur im lokalen Speicher deines Browsers (localStorage). Es
-          werden keine Daten an einen Server übertragen. Geteilte Links enthalten nur Titel, Anlass, Hintergrund und die Positionen der Teile.
+          Im MVP speichert Kollage Entwürfe, Looks sowie Name und E-Mail der Demo-Anmeldung nur im lokalen Speicher deines Browsers (localStorage). Diese
+          Angaben werden nicht an einen Server übertragen. Geteilte Links enthalten nur Titel, Anlass, Hintergrund und die Positionen der Teile.
+        </p>
+        <p>
+          Für die Auswertung der Demo zählt Kollage Nutzungsschritte (z. B. «Look angesehen», «Look gespeichert», «Zum Shop»). Dabei gehen der Name des
+          Schritts, die Seite, die Herkunft des Besuchs (z. B. «tiktok») und eine zufällige Besuchskennung für diesen Browser-Tab an unseren Server und
+          landen in dessen Protokoll. Name, E-Mail, Look-Inhalte und Titel werden dabei nicht übertragen. Ein Analyse-Drittanbieter ist nicht eingebunden.
         </p>
       </section>
 

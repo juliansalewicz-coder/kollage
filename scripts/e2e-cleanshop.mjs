@@ -44,6 +44,7 @@ export async function cleanshop({ run, base, out }) {
     await bar.getByRole("link", { name: "Anpassen" }).tap();
     await page.waitForURL(/\/builder/);
     await page.locator(".piece--edit").nth(5).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     await page.getByRole("button", { name: "Produkte", exact: true }).tap();
     await page.locator(".product-card", { hasText: "Boxy T-Shirt" }).first().tap();
     await page.getByRole("button", { name: "Fertig" }).tap();
@@ -57,6 +58,7 @@ export async function cleanshop({ run, base, out }) {
   await run("r4-guest-save", { width: 1440, height: 900 }, async (page) => {
     await page.goto(base + "/builder?look=sonntag-am-see");
     await page.locator(".piece--edit").nth(4).waitFor();
+    await page.locator(".builder[data-ready]").waitFor();
     await page.fill("#look-title", "Mein Seetag");
     await page.getByRole("button", { name: "Speichern", exact: true }).click();
     if (await page.locator("dialog[open]").count()) throw new Error("saving asked for a sign-in");
