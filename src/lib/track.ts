@@ -14,6 +14,7 @@ export type TrackEvent =
   | "look_saved"
   | "look_published"
   | "look_shared"
+  | "look_exported"
   | "shop_clicked";
 
 type Props = Record<string, string | number | boolean | null | undefined>;

@@ -23,11 +23,12 @@ import {
 import { draftNeedsGuard } from "@/lib/draft-guard";
 import { requireLogin, toast } from "@/lib/events";
 import { formatCHF, pieces } from "@/lib/format";
-import { distinctCount, pieceRows } from "@/lib/look";
+import { distinctCount, lookTotal, pieceRows } from "@/lib/look";
 import { BACKDROPS, getSeedLook, lookup, OCCASIONS } from "@/lib/seed-looks";
 import { COMPACT_QUERY, isolate } from "@/lib/modal";
 import { decodeLook } from "@/lib/share";
 import { track } from "@/lib/track";
+import { renderLookImage, shareOrDownload } from "@/lib/export-image";
 import {
   archiveDraft,
   getArchivedDrafts,
@@ -358,6 +359,26 @@ export function Builder() {
     track("look_saved", { look: look.id, published: look.status === "veroeffentlicht" });
     const what = look.status === "veroeffentlicht" ? "Änderungen veröffentlicht" : "Gespeichert in «Meine Looks»";
     toast(persisted ? what : `${what}, aber nur für diese Sitzung: Browserspeicher blockiert`);
+  }
+
+  /** PNG of the collage with title and total, shared on phones or downloaded elsewhere. */
+  const [exporting, setExporting] = useState(false);
+  async function exportImage() {
+    if (!items.length || exporting) return;
+    setExporting(true);
+    try {
+      const s = live.current;
+      const title = s.title.trim() || "Mein Look";
+      const blob = await renderLookImage(s.items, s.backdrop, title, lookTotal(s.items));
+      const how = await shareOrDownload(blob, title);
+      track("look_exported", { how });
+      if (how === "gespeichert") toast("Bild gespeichert");
+    } catch (err) {
+      // Closing the share sheet is not an error worth a message.
+      if (!(err instanceof DOMException && err.name === "AbortError")) toast("Bild konnte nicht erstellt werden. Bitte nochmals versuchen.");
+    } finally {
+      setExporting(false);
+    }
   }
 
   function publish() {
@@ -696,6 +717,10 @@ export function Builder() {
             </button>
           )}
         </div>
+        <button type="button" className="save-action" onClick={exportImage} disabled={!items.length || exporting}>
+          <span className="save-action__label">{exporting ? "Bild wird erstellt …" : "Als Bild teilen"}</span>
+          <span className="save-action__hint">PNG im Format 4:5 mit Titel und Preis, z. B. für Instagram oder TikTok.</span>
+        </button>
         <p className="fineprint">{session ? "Alles bleibt in diesem Browser." : demoHint}</p>
         {lookDetails("sheet")}
       </Sheet>
@@ -757,11 +782,11 @@ export function Builder() {
 
         <section className="builder__stage" aria-label="Leinwand bearbeiten">
           <div className="stage-tools" role="toolbar" aria-label="Leinwand">
-            <button type="button" className="tool" onClick={undo} disabled={!canUndo}>
-              <Icon name="undo" /> <span className="tool__label">Rückgängig</span>
+            <button type="button" className="tool tool--icon" onClick={undo} disabled={!canUndo} aria-label="Rückgängig" title="Rückgängig (Strg+Z)">
+              <Icon name="undo" />
             </button>
-            <button type="button" className="tool" onClick={redo} disabled={!canRedo}>
-              <Icon name="redo" /> <span className="tool__label">Wiederholen</span>
+            <button type="button" className="tool tool--icon" onClick={redo} disabled={!canRedo} aria-label="Wiederholen" title="Wiederholen (Strg+Umschalt+Z)">
+              <Icon name="redo" />
             </button>
             <button type="button" className="tool" onClick={() => edit((xs) => autoArrange(xs, lookup))} disabled={!items.length}>
               <Icon name="arrange" /> <span className="tool__label">Anordnen</span>
@@ -774,6 +799,9 @@ export function Builder() {
             >
               <Icon name="trash" /> <span className="tool__label">Leeren</span>
             </button>
+            <button type="button" className="tool" onClick={exportImage} disabled={!items.length || exporting}>
+              <Icon name="image" /> <span className="tool__label">{exporting ? "Wird erstellt …" : "Als Bild"}</span>
+            </button>
           </div>
 
           <BuilderCanvas
@@ -781,8 +809,6 @@ export function Builder() {
             backdrop={state.backdrop}
             selected={selected}
             onSelect={setSelected}
-            preview={preview}
-            checkpoint={checkpoint}
             commit={commit}
             onDropProduct={dropAt}
             emptyState={booted ? emptyState : <p className="canvas-loading">Look wird geladen …</p>}

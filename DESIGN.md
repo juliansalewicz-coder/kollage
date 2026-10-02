@@ -86,10 +86,13 @@ Saving needs no sign-in: every look saved in this browser is listed under «Mein
 - Desktop: bar (title, status with a one-line explanation, save actions), three columns (products 300px, canvas, side panel 280px), canvas plus one-row toolbar fit 1440×900; side panel order Budget, selected piece, pieces, details.
 - Phones: compact bar (title and status, undo, redo, «Speichern» opens the save sheet), sticky dock (selection tools or Anordnen/Leeren, plus «Produkte» and the budget bar). The product drawer is modal (inert background, Escape, focus return) and does not open the keyboard on touch screens.
 - Saving suggestion and replace sheet judge alternatives by the change of the whole look total («Look −60.00»); duplicates are swapped together.
+- Direct manipulation (`gesture.ts`): during a drag, scale or rotate only the piece's `transform` and the selection frame are written, once per animation frame; layout is measured once at the start; React state changes once at the end (one undo step). Touch: a second finger anywhere on the canvas turns the drag into a pinch (distance scales, angle rotates, midpoint moves). Trackpad pinch (ctrl + wheel) scales the selected piece, committed 200 ms after the last wheel event. Centre lines snap within 7 px with a 1px guide at 45 % ink and a 6 ms vibration where supported; rotation snaps within 4° to multiples of 45°.
+- «Als Bild»: PNG 1080 × 1470 (4:5 collage plus a white strip with title, total «Beispielpreise» and KOLLAGE); system share sheet on touch devices, download elsewhere.
+- Desktop canvas toolbar: undo and redo as icons with tooltips, then Anordnen, Leeren, Als Bild.
 
 ## Motion
 
-Short and only where it explains a change: piece arrives (fade and grow 300ms, ink ring 700ms), replace (cross-fade 260–320ms), selection frame (140ms), price change (value settles 260ms, difference chip 1.8s), product card picture hover (220ms). Dragging is never animated. `prefers-reduced-motion` turns all of it off.
+Short and only where it explains a change: pick-up (scale 1.03 with a light spring, `cubic-bezier(.34,1.56,.64,1)`, 180ms), put-down (settle with a small overshoot, 340ms), piece arrives (fade and grow 300ms, ink ring 700ms), replace (cross-fade 260–320ms), selection frame (140ms), price change (value settles 260ms, difference chip 1.8s), product card picture hover (220ms). Dragging is never animated. `prefers-reduced-motion` turns all of it off.
 
 ## Measuring
 
