@@ -48,7 +48,8 @@ There is no accent colour. `--accent*` tokens still exist for older rules and re
 ## Header
 
 - Desktop: wordmark left, two uppercase links (Entdecken, Meine Looks), right: heart with count (Gemerkt), account, «Look erstellen» (hidden in the builder). Active link: 2px ink underline.
-- Phones: one 56px row: menu, centred wordmark, heart, account. The menu sheet lists Entdecken, Meine Looks, Gemerkt and «Look erstellen».
+- Phones and tablets (<768px): one 56px row: menu, centred wordmark, heart, account.
+- Menu (`MenuPanel`): a full-height white panel from the left (max 440px, the page stays visible behind a 40 % ink scrim on tablets), not a dialog card. Close button exactly where the menu button was. Content: the three destinations as large links (2–2.6rem, 600), Gemerkt with its count; «Nach Anlass» as a swipe row of small collages; «Look erstellen» pinned to the bottom edge with a one-line note. Motion: panel slides in with the drawer curve (460ms), links follow 45ms apart from the left, closing slides out faster (260ms) before the dialog closes; page scroll is locked while open; reduced motion shows it without movement. Escape and the scrim close it; focus returns to the menu button.
 
 ## Products and looks
 

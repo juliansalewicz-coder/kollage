@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { openLogin, useToasts } from "@/lib/events";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { probeStorage, signOut, useFavorites, useSession, useStorageStatus } from "@/lib/store";
 import { Icon } from "./Icon";
-import { Sheet } from "./Sheet";
+import { MenuPanel } from "./MenuPanel";
 import { Wordmark } from "./Wordmark";
 
 const NAV = [
@@ -23,6 +23,7 @@ export function SiteHeader() {
   const session = useSession();
   const favs = useFavorites();
   const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
   const inBuilder = path.startsWith("/builder");
   const favCount = favs.products.length + favs.looks.length;
   useEffect(() => setMenuOpen(false), [path]);
@@ -30,7 +31,7 @@ export function SiteHeader() {
   return (
     <header className="nav">
       <div className="nav__inner">
-        <button type="button" className="nav__icon nav__menu" onClick={() => setMenuOpen(true)} aria-label="Menü" aria-haspopup="dialog">
+        <button type="button" className="nav__icon nav__menu" onClick={() => setMenuOpen(true)} aria-label="Menü öffnen" aria-haspopup="dialog" aria-expanded={menuOpen}>
           <Icon name="menu" size={22} />
         </button>
         <Link href="/" className="nav__brand" aria-label="Kollage, zur Startseite">
@@ -71,22 +72,12 @@ export function SiteHeader() {
           )}
         </div>
       </div>
-      <Sheet open={menuOpen} onClose={() => setMenuOpen(false)} title="Menü" className="sheet--menu">
-        <nav aria-label="Hauptnavigation mobil">
-          <ul className="menu-list">
-            {[...NAV, { href: "/gemerkt", label: `Gemerkt${favCount ? ` (${favCount})` : ""}` }].map((n) => (
-              <li key={n.href}>
-                <Link href={n.href} className="menu-list__link" aria-current={isActive(n.href) ? "page" : undefined} onClick={() => setMenuOpen(false)}>
-                  {n.label} <Icon name="chevronRight" size={18} />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-        <Link href="/builder" className="btn btn--primary menu-cta" onClick={() => setMenuOpen(false)}>
-          Look erstellen
-        </Link>
-      </Sheet>
+      <MenuPanel
+        open={menuOpen}
+        onClose={closeMenu}
+        isActive={isActive}
+        links={[...NAV, { href: "/gemerkt", label: "Gemerkt", count: favCount }]}
+      />
     </header>
   );
 }

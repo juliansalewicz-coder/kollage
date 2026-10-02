@@ -10,6 +10,7 @@ import { audit } from "./e2e-audit.mjs";
 import { cleanshop } from "./e2e-cleanshop.mjs";
 import { gestures } from "./e2e-gestures.mjs";
 import { premium } from "./e2e-premium.mjs";
+import { tablet } from "./e2e-tablet.mjs";
 
 const out = process.argv[2] || "acceptance-out/e2e";
 const only = process.env.ONLY;
@@ -206,6 +207,7 @@ await audit({ run, base, out, draft });
 await cleanshop({ run, base, out, draft });
 await gestures({ run, base, out, draft });
 await premium({ run, base, out, draft });
+await tablet({ run, base, out, draft });
 
 await browser.close();
 process.exit(failed ? 1 : 0);

@@ -5,12 +5,32 @@ export async function cleanshop({ run, base, out }) {
 
   await run("r4-phone-menu", { width: 390, height: 844 }, async (page) => {
     await page.goto(base + "/");
+    await page.waitForLoadState("networkidle"); // hydrated: the menu button responds
     const header = await page.locator(".nav").boundingBox();
     if (header.height > 60) throw new Error("phone header is " + header.height + "px high");
-    await page.getByRole("button", { name: "Menü" }).tap();
-    const sheet = page.locator("dialog.sheet[open]");
-    await sheet.getByRole("link", { name: /Gemerkt/ }).tap();
+    const opener = page.getByRole("button", { name: "Menü öffnen" });
+    await opener.tap();
+    const menu = page.locator("dialog.menu[open]");
+    await menu.getByRole("link", { name: "Entdecken" }).waitFor();
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: `${out}/r4-phone-menu-open.png` });
+    // Escape closes it (after the slide-out) and focus returns to the menu button.
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(450);
+    if (await page.locator("dialog.menu[open]").count()) throw new Error("menu did not close");
+    if (!(await opener.evaluate((el) => el === document.activeElement))) throw new Error("focus did not return to the menu button");
+    // Occasion tiles lead to filtered looks; links close the menu.
+    await opener.tap();
+    await menu.getByRole("link", { name: "Büro" }).tap();
+    await page.waitForURL(/anlass=buero/);
+    // Reopen right away, while the panel is still sliding out: it must come back, not stay empty.
+    await opener.tap();
+    await page.waitForTimeout(500);
+    if (!(await page.locator(".menu:not(.is-closing) .menu__panel").isVisible())) throw new Error("menu stuck after fast reopen");
+    await menu.getByRole("link", { name: /Gemerkt/ }).tap();
     await page.waitForURL(/\/gemerkt/);
+    await page.waitForTimeout(450);
+    if (await page.locator("dialog.menu[open]").count()) throw new Error("menu still open after navigation");
     await page.screenshot({ path: `${out}/r4-phone-menu.png` });
   });
 

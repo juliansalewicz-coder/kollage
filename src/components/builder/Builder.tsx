@@ -467,7 +467,6 @@ export function Builder() {
           : { tone: "muted", text: "Entwurf wird gesichert …", detail: "" };
   const saveLabel = isPublished ? "Änderungen veröffentlichen" : "Speichern";
   const publishLabel = !session ? "Anmelden & veröffentlichen" : "Veröffentlichen";
-  const saveHint = isPublished ? "Aktualisiert die Look-Seite und den Eintrag unter «Entdecken»." : "Legt den Look unter «Meine Looks» ab, ohne Anmeldung.";
   const publishHint = session ? "Zeigt den Look mit eigener Seite unter «Entdecken»." : "Zeigt den Look unter «Entdecken». Dafür brauchst du einen Namen (Demo-Anmeldung).";
   const demoHint = "Alles bleibt in diesem Browser und wird nicht zwischen Geräten abgeglichen. Die Anmeldung ist eine Demo ohne echtes Konto.";
   /** One line under the desktop status: what the two buttons add to the automatic draft. */
@@ -791,7 +790,10 @@ export function Builder() {
         items={items}
         uid={replaceItemNow?.uid ?? null}
         open={Boolean(replaceItemNow)}
-        onClose={() => setReplaceFor(null)}
+        onClose={() => {
+          fromBudget.current = false;
+          setReplaceFor(null);
+        }}
         onPick={replaceWith}
       />
 
