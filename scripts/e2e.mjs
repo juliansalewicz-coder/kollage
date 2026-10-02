@@ -7,6 +7,7 @@ import { paket2 } from "./e2e-paket2.mjs";
 import { paket3 } from "./e2e-paket3.mjs";
 import { review2 } from "./e2e-review2.mjs";
 import { audit } from "./e2e-audit.mjs";
+import { cleanshop } from "./e2e-cleanshop.mjs";
 
 const out = process.argv[2] || "acceptance-out/e2e";
 const only = process.env.ONLY;
@@ -34,9 +35,12 @@ async function run(name, viewport, fn, { allow = [] } = {}) {
   });
   try {
     await fn(page);
-    const unexpected = errors.filter((e) => !allow.some((re) => re.test(e)));
+    // Playwright hides the text caret for screenshots by styling inputs; if that lands before
+    // hydration, React reports a mismatch on `caret-color`. That is the test tool, not the app.
+    const tool = /hydrated but some attributes[\s\S]*caret-color/;
+    const unexpected = errors.filter((e) => !tool.test(e) && !allow.some((re) => re.test(e)));
     if (unexpected.length) throw new Error("runtime error: " + unexpected.join(" | "));
-    console.log(name, "OK", errors.length ? "(expected: " + errors.length + " provoked errors)" : "");
+    console.log(name, "OK", errors.length ? "(" + errors.length + " known errors ignored)" : "");
   } catch (e) {
     failed++;
     console.log(name, "FAIL", e.message.split("\n")[0], errors.join(" | "));
@@ -138,7 +142,9 @@ await run("guest-draft-survives", { width: 1280, height: 800 }, async (page) => 
   await page.reload();
   await page.locator(".piece--edit").nth(1).waitFor({ timeout: 10000 }).catch(() => {});
   if ((await page.locator(".piece--edit").count()) !== 2) throw new Error("draft lost after reload");
-  await page.getByRole("button", { name: "Speichern" }).click();
+  // Publishing asks for a name; cancelling that keeps the draft.
+  await page.fill("#look-title", "Gast-Look");
+  await page.getByRole("button", { name: "Anmelden & veröffentlichen" }).click();
   await page.locator("dialog[open]").waitFor();
   await page.keyboard.press("Escape");
   await page.waitForTimeout(300);
@@ -195,6 +201,7 @@ await paket2({ run, base, out, draft });
 await paket3({ run, base, out, draft });
 await review2({ run, base, out, draft });
 await audit({ run, base, out, draft });
+await cleanshop({ run, base, out, draft });
 
 await browser.close();
 process.exit(failed ? 1 : 0);

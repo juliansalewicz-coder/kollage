@@ -16,10 +16,8 @@ export async function paket1({ run, base, out, draft }) {
     await page.getByText("Browserspeicher blockiert").first().waitFor();
     await page.locator(".product-card", { hasText: "Boxy T-Shirt" }).first().click();
     await page.locator(".product-card", { hasText: "Straight Jeans, hell" }).first().click();
-    await page.getByRole("button", { name: "Speichern" }).click();
-    await page.fill("#auth-name", "Test Person");
-    await page.fill("#auth-email", "test@example.ch");
-    await page.getByRole("button", { name: "Anmelden und fortfahren" }).click();
+    // Saving needs no sign-in; the toast says honestly that it only lasts for this session.
+    await page.getByRole("button", { name: "Speichern", exact: true }).click();
     await page.getByText("nur für diese Sitzung").first().waitFor();
     await page.screenshot({ path: `${out}/p1-blocked-storage.png` });
     if (errors.length) throw new Error("page error: " + errors.join(" | "));

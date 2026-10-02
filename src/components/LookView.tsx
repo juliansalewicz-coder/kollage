@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getShop } from "@/lib/catalog";
 import { toast } from "@/lib/events";
 import { formatCHF, pieces } from "@/lib/format";
 import { distinctCount, lookTotal, offerHref, pieceRows, shippingText } from "@/lib/look";
 import { OCCASIONS, SEED_LOOKS } from "@/lib/seed-looks";
 import { encodeLook } from "@/lib/share";
+import { track } from "@/lib/track";
 import type { Backdrop, CanvasItem, Occasion } from "@/lib/types";
 import { ProductImage } from "./GarmentArt";
 import { Icon } from "./Icon";
@@ -46,7 +47,12 @@ export function LookView({ look }: { look: ViewableLook }) {
   const remixHref = look.kind === "beispiel" && look.id ? `/builder?look=${look.id}` : `/builder?d=${code}`;
   const more = SEED_LOOKS.filter((l) => l.id !== look.id).slice(0, 3);
 
+  useEffect(() => {
+    track("look_viewed", { look: look.id ?? "geteilt", kind: look.kind });
+  }, [look.id, look.kind]);
+
   async function share() {
+    track("look_shared", { look: look.id ?? "geteilt" });
     const url =
       look.kind === "beispiel" && look.id ? `${window.location.origin}/look/${look.id}` : `${window.location.origin}/look/geteilt?d=${code}`;
     try {
@@ -124,7 +130,9 @@ export function LookView({ look }: { look: ViewableLook }) {
             {look.id && <FavoriteButton kind="looks" id={look.id} label={look.title} variant="pill" />}
           </div>
 
-          <h2 className="look-page__h2">Die Teile</h2>
+          <h2 className="look-page__h2" id="teile">
+            Die Teile
+          </h2>
           <ol className="buy-list">
             {rows.map((r) => {
               const others = r.product.offers.filter((o) => o.id !== r.offer.id);
@@ -216,6 +224,22 @@ export function LookView({ look }: { look: ViewableLook }) {
           ))}
         </div>
       </section>
+
+      {/* Phones (e.g. arriving from a video): price and the two next steps always in reach. */}
+      <div className="look-buybar">
+        <p className="look-buybar__sum">
+          <span className="num">{formatCHF(lookTotal(look.items))}</span>
+          <span>
+            {pieces(distinctCount(look.items))} · Demo-Preise
+          </span>
+        </p>
+        <a href="#teile" className="btn btn--ghost btn--sm">
+          Teile
+        </a>
+        <Link href={remixHref} className="btn btn--primary btn--sm">
+          Anpassen
+        </Link>
+      </div>
     </div>
   );
 }

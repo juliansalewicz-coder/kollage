@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Types
+        run: npx tsc --noEmit -p .
+      - name: Unit tests
+        run: npm test
+      - name: Production build
+        run: npm run build
+
+  e2e:
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # The runner image ships Google Chrome; playwright-core uses it via channel "chrome".
+      - name: Start dev server
+        run: |
+          npm run dev > dev.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:3100/ > /dev/null && break; sleep 2; done
+      - name: Browser scenarios
+        run: node scripts/e2e.mjs acceptance-out/e2e
+      - name: Screenshots of failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: acceptance-out/e2e

@@ -30,7 +30,7 @@ export function FavoritesView() {
         <p className="page__lead">
           {status === "sitzung"
             ? "Achtung: Dein Browser blockiert den Speicher. Gemerktes bleibt nur bis zum Schliessen dieses Tabs."
-            : "Gemerkt wird in diesem Browser, auch ohne Anmeldung. Mit einem Konto später auch auf anderen Geräten."}
+            : "Gemerkt wird in diesem Browser gespeichert, ohne Anmeldung."}
         </p>
       </header>
 

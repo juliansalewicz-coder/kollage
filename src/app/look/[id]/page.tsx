@@ -9,7 +9,15 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const seed = getSeedLook(id);
-  return { title: seed ? seed.title : "Look" };
+  if (!seed) return { title: "Look", robots: { index: false } };
+  // Link previews (messages, social): title and the look note; no image yet (see README).
+  const description = `${seed.note} ${seed.items.length} Teile mit Preisen in CHF und Shops.`;
+  return {
+    title: seed.title,
+    description,
+    openGraph: { title: `${seed.title} · Kollage`, description, type: "article", locale: "de_CH", siteName: "Kollage" },
+    twitter: { card: "summary", title: seed.title, description },
+  };
 }
 
 export default async function LookPage({ params }: { params: Promise<{ id: string }> }) {

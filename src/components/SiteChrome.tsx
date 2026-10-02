@@ -3,47 +3,64 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { openLogin, useToasts } from "@/lib/events";
-import { useEffect } from "react";
-import { probeStorage, signOut, useSession, useStorageStatus } from "@/lib/store";
+import { useEffect, useState } from "react";
+import { probeStorage, signOut, useFavorites, useSession, useStorageStatus } from "@/lib/store";
 import { Icon } from "./Icon";
+import { Sheet } from "./Sheet";
 import { Wordmark } from "./Wordmark";
 
 const NAV = [
   { href: "/entdecken", label: "Entdecken" },
   { href: "/meine-looks", label: "Meine Looks" },
-  { href: "/gemerkt", label: "Gemerkt" },
 ];
 
+/**
+ * Shop header. Desktop: name, two text links, then icons (Gemerkt, account) and «Look erstellen».
+ * Phones: one row (menu, name, Gemerkt, account); the links live in the menu sheet.
+ */
 export function SiteHeader() {
   const path = usePathname();
   const session = useSession();
+  const favs = useFavorites();
+  const [menuOpen, setMenuOpen] = useState(false);
   const inBuilder = path.startsWith("/builder");
+  const favCount = favs.products.length + favs.looks.length;
+  useEffect(() => setMenuOpen(false), [path]);
+  const isActive = (href: string) => path === href || path.startsWith(href + "/");
   return (
     <header className="nav">
       <div className="nav__inner">
+        <button type="button" className="nav__icon nav__menu" onClick={() => setMenuOpen(true)} aria-label="Menü" aria-haspopup="dialog">
+          <Icon name="menu" size={22} />
+        </button>
         <Link href="/" className="nav__brand" aria-label="Kollage, zur Startseite">
           <Wordmark />
         </Link>
         <nav className="nav__links" aria-label="Hauptnavigation">
-          {NAV.map((n) => {
-            const active = path === n.href || path.startsWith(n.href + "/");
-            return (
-              <Link key={n.href} href={n.href} className="nav__link" aria-current={active ? "page" : undefined}>
-                {n.label}
-              </Link>
-            );
-          })}
+          {NAV.map((n) => (
+            <Link key={n.href} href={n.href} className="nav__link" aria-current={isActive(n.href) ? "page" : undefined}>
+              {n.label}
+            </Link>
+          ))}
         </nav>
         <div className="nav__end">
+          <Link href="/gemerkt" className="nav__icon" aria-current={isActive("/gemerkt") ? "page" : undefined} aria-label={`Gemerkt${favCount ? `, ${favCount}` : ""}`}>
+            <Icon name="heart" size={20} />
+            {favCount > 0 && (
+              <span className="nav__badge num" aria-hidden="true">
+                {favCount}
+              </span>
+            )}
+          </Link>
           {session ? (
-            <button type="button" className="nav__account" onClick={signOut} title={`Angemeldet als ${session.name}. Abmelden`}>
-              <Icon name="user" size={18} />
+            <button type="button" className="nav__icon nav__account" onClick={signOut} title={`Angemeldet als ${session.name}. Abmelden`}>
+              <Icon name="user" size={20} />
               <span className="nav__account-name">{session.name}</span>
               <span className="sr-only">, abmelden</span>
             </button>
           ) : (
-            <button type="button" className="nav__account" onClick={openLogin} aria-label="Anmelden">
-              <Icon name="user" size={18} />
+            <button type="button" className="nav__icon nav__account" onClick={openLogin} aria-label="Anmelden">
+              <Icon name="user" size={20} />
               <span className="nav__account-name">Anmelden</span>
             </button>
           )}
@@ -54,6 +71,22 @@ export function SiteHeader() {
           )}
         </div>
       </div>
+      <Sheet open={menuOpen} onClose={() => setMenuOpen(false)} title="Menü" className="sheet--menu">
+        <nav aria-label="Hauptnavigation mobil">
+          <ul className="menu-list">
+            {[...NAV, { href: "/gemerkt", label: `Gemerkt${favCount ? ` (${favCount})` : ""}` }].map((n) => (
+              <li key={n.href}>
+                <Link href={n.href} className="menu-list__link" aria-current={isActive(n.href) ? "page" : undefined} onClick={() => setMenuOpen(false)}>
+                  {n.label} <Icon name="chevronRight" size={18} />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <Link href="/builder" className="btn btn--primary menu-cta" onClick={() => setMenuOpen(false)}>
+          Look erstellen
+        </Link>
+      </Sheet>
     </header>
   );
 }
@@ -82,7 +115,7 @@ export function SiteFooter() {
         <p className="footer__note">MVP mit Demo-Katalog: Artikel, Shops und Preise sind Beispiele. Die Produktbilder sind KI-generierte Demo-Renderings (Higgsfield), keine angebotenen Artikel.</p>
         <div className="footer__bottom">
           <span className="footer__brand">
-            <Wordmark size={15} /> Schweiz · Preise in CHF
+            <Wordmark size={13} /> Schweiz · Preise in CHF
           </span>
           <nav className="footer__links" aria-label="Rechtliches">
             <Link href="/hinweise">Hinweise &amp; Affiliate-Offenlegung</Link>
